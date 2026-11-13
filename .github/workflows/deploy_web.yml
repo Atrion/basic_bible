@@ -22,6 +22,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # pubspec.yaml expects the parser package at ../bible_parser_flutter.
+      # Set repo variable PARSER_REPO ("owner/repo"); add secret
+      # PARSER_REPO_TOKEN if that repo is private.
+      - name: Checkout parser package
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ vars.PARSER_REPO || 'PopGTN/bible_parser_flutter' }}
+          token: ${{ secrets.PARSER_REPO_TOKEN || github.token }}
+          path: bible_parser_flutter
+
+      - name: Place parser beside the app
+        run: mv bible_parser_flutter ../bible_parser_flutter
+
       - name: Set up Java
         uses: actions/setup-java@v4
         with:

@@ -1,10 +1,8 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:go_router/go_router.dart';
 import 'package:basic_bible/l10n/app_localizations.dart';
+import 'package:basic_bible/src/features/annotations/application/view_models/annotation_preferences_view_models.dart';
 import 'package:basic_bible/src/features/library/data/app_bible_repository.dart';
 import 'package:basic_bible/src/features/home/application/view_models/home_navigation_view_model.dart';
 import 'package:basic_bible/src/features/menu/presentation/menu_tab.dart';
@@ -13,7 +11,10 @@ import 'package:basic_bible/src/features/reader/application/view_models/reader_p
 import 'package:basic_bible/src/features/reader/application/view_models/reader_session_view_models.dart';
 import 'package:basic_bible/src/features/reader/presentation/reader_view/bible_viewer_tab.dart';
 import 'package:basic_bible/src/features/settings/application/view_models/theme_view_model.dart';
+import 'package:basic_bible/src/models/bible_models.dart';
 import 'package:basic_bible/src/services/font_size_service.dart';
+import 'package:basic_bible/src/widgets/horizontal_mouse_scroll_list.dart';
+import 'package:basic_bible/src/widgets/theme_preview_card.dart';
 
 import 'home_tab.dart';
 
@@ -64,9 +65,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     _appBarController = _createController();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      // Warm the current translation from the shell so Home/Menu tabs can
-      // hide the initial Bible load instead of waiting for the reader tab.
-      ref.read(bibleBooksProvider.notifier).preloadCurrentTranslation();
+      // Warm the current translation metadata from the shell provider so
+      // navigation and chapter pickers are ready without hydrating all verses.
+      ref.read(bibleBooksShellProvider.notifier).preloadCurrentTranslation();
     });
   }
 
@@ -93,6 +94,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   void hideAppBar() => _appBarController.reverse();
 
+  Future<void> _anchorVisibleContinuousReferenceIfNeeded(WidgetRef ref) async {
+    if (!ref.read(continuousScrollingProvider)) return;
+
+    final visibleReference = ref.read(visibleReaderReferenceProvider);
+    if (visibleReference == null) return;
+
+    final currentReference = ref.read(currentReferenceProvider);
+    await ref
+        .read(currentReferenceProvider.notifier)
+        .setReference(
+          BibleReference(
+            bookId: visibleReference.bookId,
+            chapter: visibleReference.chapter,
+            verse: currentReference.verse,
+          ),
+        );
+  }
+
   void _showBibleViewerSettings(BuildContext context, WidgetRef ref) {
     showModalBottomSheet<void>(
       context: context,
@@ -109,6 +128,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               themeMode: themeMode,
               layoutMode: layoutMode,
               continuousScrolling: ref.watch(continuousScrollingProvider),
+              showNotesAcrossTranslations: ref.watch(
+                showNotesAcrossTranslationsProvider,
+              ),
               onDecreaseFont: () {
                 final nextSize = (FontSizeService.instance.size - 2).clamp(
                   12.0,
@@ -126,12 +148,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               onThemeSelected: (mode) {
                 ref.read(themeProvider.notifier).setTheme(mode);
               },
-              onLayoutSelected: (mode) {
+              onLayoutSelected: (mode) async {
+                await _anchorVisibleContinuousReferenceIfNeeded(ref);
                 ref.read(readerLayoutModeProvider.notifier).setLayoutMode(mode);
               },
               onContinuousScrollingChanged: (value) {
+                if (!value) {
+                  _anchorVisibleContinuousReferenceIfNeeded(ref);
+                }
                 ref
                     .read(continuousScrollingProvider.notifier)
+                    .setEnabled(value);
+              },
+              onShowNotesAcrossTranslationsChanged: (value) {
+                ref
+                    .read(showNotesAcrossTranslationsProvider.notifier)
                     .setEnabled(value);
               },
               onOpenAllSettings: () {
@@ -266,7 +297,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       _HomeTabDefinition(
         widget: const HomeTab(),
         title: t.home,
-        icon: FontAwesomeIcons.house,
+        icon: Icons.home,
       ),
       _HomeTabDefinition(
         widget: BibleViewerTab(
@@ -278,12 +309,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           isSmallDevice: isSmall,
         ),
         title: t.bible,
-        icon: FontAwesomeIcons.book,
+        icon: Icons.menu_book,
       ),
       _HomeTabDefinition(
         widget: const MenuTab(),
         title: t.menu,
-        icon: FontAwesomeIcons.bars,
+        icon: Icons.menu,
       ),
     ];
   }
@@ -455,22 +486,26 @@ class _BibleViewerSettingsSheet extends StatelessWidget {
     required this.themeMode,
     required this.layoutMode,
     required this.continuousScrolling,
+    required this.showNotesAcrossTranslations,
     required this.onDecreaseFont,
     required this.onIncreaseFont,
     required this.onThemeSelected,
     required this.onLayoutSelected,
     required this.onContinuousScrollingChanged,
+    required this.onShowNotesAcrossTranslationsChanged,
     required this.onOpenAllSettings,
   });
 
   final AppThemeMode themeMode;
   final ReaderLayoutMode layoutMode;
   final bool continuousScrolling;
+  final bool showNotesAcrossTranslations;
   final VoidCallback onDecreaseFont;
   final VoidCallback onIncreaseFont;
   final ValueChanged<AppThemeMode> onThemeSelected;
   final ValueChanged<ReaderLayoutMode> onLayoutSelected;
   final ValueChanged<bool> onContinuousScrollingChanged;
+  final ValueChanged<bool> onShowNotesAcrossTranslationsChanged;
   final VoidCallback onOpenAllSettings;
 
   @override
@@ -557,6 +592,15 @@ class _BibleViewerSettingsSheet extends StatelessWidget {
                       );
                     },
                   ),
+                  Divider(
+                    height: 1,
+                    color: colors.outlineVariant.withValues(alpha: 0.7),
+                  ),
+                  _ToggleSettingsRow(
+                    title: 'Show Notes On Other Translations',
+                    value: showNotesAcrossTranslations,
+                    onChanged: onShowNotesAcrossTranslationsChanged,
+                  ),
                 ],
               ),
             ),
@@ -565,28 +609,18 @@ class _BibleViewerSettingsSheet extends StatelessWidget {
             const SizedBox(height: 14),
             SizedBox(
               height: 146,
-              child: ScrollConfiguration(
-                behavior: ScrollConfiguration.of(context).copyWith(
-                  dragDevices: {
-                    PointerDeviceKind.touch,
-                    PointerDeviceKind.mouse,
-                    PointerDeviceKind.trackpad,
-                  },
-                ),
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  children: [
-                    for (final mode in AppThemeMode.values)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 12),
-                        child: _ThemePreviewCard(
-                          mode: mode,
-                          selected: mode == themeMode,
-                          onTap: () => onThemeSelected(mode),
-                        ),
+              child: HorizontalMouseScrollList(
+                children: [
+                  for (final mode in AppThemeMode.values)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 12),
+                      child: ThemePreviewCard(
+                        mode: mode,
+                        selected: mode == themeMode,
+                        onTap: () => onThemeSelected(mode),
                       ),
-                  ],
-                ),
+                    ),
+                ],
               ),
             ),
             const SizedBox(height: 16),
@@ -707,163 +741,3 @@ class _ToggleSettingsRow extends StatelessWidget {
   }
 }
 
-class _ThemePreviewCard extends StatelessWidget {
-  const _ThemePreviewCard({
-    required this.mode,
-    required this.selected,
-    required this.onTap,
-  });
-
-  final AppThemeMode mode;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final preview = _themePreview(mode);
-    final colors = Theme.of(context).colorScheme;
-    final labelStyle = Theme.of(context).textTheme.labelMedium?.copyWith(
-      color: colors.onSurfaceVariant,
-      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-    );
-
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(22),
-      child: SizedBox(
-        width: 84,
-        child: Column(
-          children: [
-            AnimatedContainer(
-              duration: const Duration(milliseconds: 180),
-              width: 78,
-              height: 112,
-              padding: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: preview.background,
-                borderRadius: BorderRadius.circular(22),
-                border: Border.all(
-                  color: selected
-                      ? colors.onSurface
-                      : preview.outline ?? Colors.transparent,
-                  width: selected ? 2.2 : 1.4,
-                ),
-                boxShadow: selected
-                    ? [
-                        BoxShadow(
-                          color: colors.shadow.withValues(alpha: 0.18),
-                          blurRadius: 10,
-                          offset: const Offset(0, 4),
-                        ),
-                      ]
-                    : const [],
-              ),
-              child: Column(
-                children: [
-                  for (var i = 0; i < 4; i++)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 5),
-                      child: Container(
-                        height: 3,
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          color: preview.foreground.withValues(
-                            alpha: i == 0 ? 0.95 : 0.6,
-                          ),
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                    ),
-                  const Spacer(),
-                  Container(
-                    width: 28,
-                    height: 28,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: preview.foreground.withValues(alpha: 0.7),
-                        width: 2,
-                      ),
-                    ),
-                    child: selected
-                        ? Icon(Icons.check, size: 18, color: preview.foreground)
-                        : null,
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              preview.label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: labelStyle,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  _ThemePreview _themePreview(AppThemeMode mode) {
-    return switch (mode) {
-      AppThemeMode.system => const _ThemePreview(
-        label: 'System',
-        background: Color(0xFFF8F6F1),
-        foreground: Color(0xFF1C1A17),
-        outline: Color(0x22000000),
-      ),
-      AppThemeMode.light => const _ThemePreview(
-        label: 'Light',
-        background: Color(0xFFF4EEE6),
-        foreground: Color(0xFF3A3028),
-        outline: Color(0x22000000),
-      ),
-      AppThemeMode.dark => const _ThemePreview(
-        label: 'Dark',
-        background: Color(0xFF181614),
-        foreground: Color(0xFFF3EEE8),
-      ),
-      AppThemeMode.softDark => const _ThemePreview(
-        label: 'Soft',
-        background: Color(0xFF1B1D22),
-        foreground: Color(0xFFF2F4F7),
-      ),
-      AppThemeMode.black => const _ThemePreview(
-        label: 'Black',
-        background: Color(0xFF000000),
-        foreground: Color(0xFFF5F5F5),
-      ),
-      AppThemeMode.white => const _ThemePreview(
-        label: 'White',
-        background: Color(0xFFFFFFFF),
-        foreground: Color(0xFF111111),
-        outline: Color(0x33000000),
-      ),
-      AppThemeMode.blue => const _ThemePreview(
-        label: 'Blue',
-        background: Color(0xFF1E2D42),
-        foreground: Color(0xFFF2F6FB),
-      ),
-      AppThemeMode.red => const _ThemePreview(
-        label: 'Red',
-        background: Color(0xFF35211D),
-        foreground: Color(0xFFFAF1EC),
-      ),
-    };
-  }
-}
-
-class _ThemePreview {
-  const _ThemePreview({
-    required this.label,
-    required this.background,
-    required this.foreground,
-    this.outline,
-  });
-
-  final String label;
-  final Color background;
-  final Color foreground;
-  final Color? outline;
-}

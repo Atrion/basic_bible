@@ -43,3 +43,17 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Local OAuth client ids/secrets (see docs/google_sync_setup.md)
+dart_defines.json
+
+# Stray Flutter screenshots
+flutter_*.png
+
+# Rust build output (native USFM parser)
+native/**/target/
+
+# Local release signing material
+android/key.properties
+*.jks
+*.keystore

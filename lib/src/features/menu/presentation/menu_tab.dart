@@ -75,12 +75,12 @@ class MenuTab extends ConsumerWidget {
           onTap: () => context.go('/coming-soon/about'),
         ),
 
-        //Donate
-        ListTile(
-          leading: const Icon(Icons.help_outline),
-          title: Text("Donate"),
-          onTap: () => context.go('/coming-soon/donate'),
-        ),
+        // //Donate
+        // ListTile(
+        //   leading: const Icon(Icons.help_outline),
+        //   title: Text("Donate"),
+        //   onTap: () => context.go('/coming-soon/donate'),
+        // ),
         // Help
         ListTile(
           leading: const Icon(Icons.help_outline),

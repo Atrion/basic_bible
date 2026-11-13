@@ -33,6 +33,12 @@ class _ReferencePickerScreenState extends ConsumerState<ReferencePickerScreen> {
   bool _alphabeticalOrder = false;
   List<BibleReference> _history = const [];
   final Map<String, BibleChapter> _hydratedChapters = {};
+  // Scrolled into view once each rebuild reveals them, so the picker opens
+  // (or re-hydrates) positioned at the book/chapter/verse the user came from
+  // instead of always showing the top of the list.
+  final GlobalKey _expandedBookKey = GlobalKey();
+  final GlobalKey _selectedChapterKey = GlobalKey();
+  final GlobalKey _selectedVerseKey = GlobalKey();
 
   @override
   void initState() {
@@ -42,6 +48,30 @@ class _ReferencePickerScreenState extends ConsumerState<ReferencePickerScreen> {
     selectedVerse = widget.currentReference.verse;
     filteredBooks = widget.books;
     _loadReferenceHistory();
+    _hydrateChapter(
+      widget.currentReference.bookId,
+      widget.currentReference.chapter,
+    );
+    _scheduleEnsureSelectionVisible();
+  }
+
+  void _scheduleEnsureSelectionVisible() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      // On the desktop layout the book list and the chapter/verse panel are
+      // separate scrollables, so each needs its own ensureVisible call. On
+      // the mobile layout they share one outer ListView — the second call
+      // (chapter/verse) simply refines the position the first call reached.
+      final bookContext = _expandedBookKey.currentContext;
+      if (bookContext != null) {
+        Scrollable.ensureVisible(bookContext, alignment: 0.3);
+      }
+      final selectionContext =
+          _selectedVerseKey.currentContext ?? _selectedChapterKey.currentContext;
+      if (selectionContext != null) {
+        Scrollable.ensureVisible(selectionContext, alignment: 0.3);
+      }
+    });
   }
 
   @override
@@ -123,6 +153,15 @@ class _ReferencePickerScreenState extends ConsumerState<ReferencePickerScreen> {
     Navigator.of(context).pop(reference);
   }
 
+  Future<void> _clearReferenceHistory() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('reference_history');
+    if (!mounted) return;
+    setState(() {
+      _history = const [];
+    });
+  }
+
   Future<void> _openHistorySheet() async {
     if (_history.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -133,22 +172,58 @@ class _ReferencePickerScreenState extends ConsumerState<ReferencePickerScreen> {
 
     await showModalBottomSheet<void>(
       context: context,
-      builder: (context) {
-        return SafeArea(
-          child: ListView(
-            shrinkWrap: true,
-            children: [
-              const ListTile(title: Text('Recent References')),
-              for (final reference in _history)
-                ListTile(
-                  title: Text(_referenceLabel(reference)),
-                  onTap: () {
-                    Navigator.of(context).pop();
-                    _selectReference(reference);
-                  },
-                ),
-            ],
-          ),
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (sheetContext, setSheetState) {
+            return SafeArea(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 8, 0),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Recent References',
+                            style: Theme.of(sheetContext).textTheme.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.w700),
+                          ),
+                        ),
+                        TextButton.icon(
+                          onPressed: () async {
+                            await _clearReferenceHistory();
+                            if (sheetContext.mounted) {
+                              Navigator.of(sheetContext).pop();
+                            }
+                          },
+                          icon: const Icon(Icons.delete_sweep_outlined,
+                              size: 18),
+                          label: const Text('Clear'),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 1),
+                  Flexible(
+                    child: ListView(
+                      shrinkWrap: true,
+                      children: [
+                        for (final reference in _history)
+                          ListTile(
+                            title: Text(_referenceLabel(reference)),
+                            onTap: () {
+                              Navigator.of(sheetContext).pop();
+                              _selectReference(reference);
+                            },
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
         );
       },
     );
@@ -192,6 +267,7 @@ class _ReferencePickerScreenState extends ConsumerState<ReferencePickerScreen> {
     setState(() {
       _hydratedChapters[key] = chapter;
     });
+    _scheduleEnsureSelectionVisible();
   }
 
   @override
@@ -281,6 +357,7 @@ class _ReferencePickerScreenState extends ConsumerState<ReferencePickerScreen> {
                                 selectedChapter: selectedChapter,
                                 onBookTap: (book) => _handleBookTap(book),
                                 dense: false,
+                                expandedBookKey: _expandedBookKey,
                               ),
                             ),
                             const SizedBox(width: 20),
@@ -293,6 +370,8 @@ class _ReferencePickerScreenState extends ConsumerState<ReferencePickerScreen> {
                                 showVerseSelector: widget.showVerseSelector,
                                 selectedChapterModel: selectedChapterModel,
                                 compact: false,
+                                selectedChapterKey: _selectedChapterKey,
+                                selectedVerseKey: _selectedVerseKey,
                                 onChapterTap: (chapterNumber) {
                                   if (!widget.showVerseSelector) {
                                     _selectReference(
@@ -353,6 +432,7 @@ class _ReferencePickerScreenState extends ConsumerState<ReferencePickerScreen> {
                                     ? book.chapters.first
                                     : const BibleChapter(number: 1));
                           return _ReferenceBookCard(
+                            key: isExpanded ? _expandedBookKey : null,
                             book: book,
                             isExpanded: isExpanded,
                             selectedChapter: selectedChapter,
@@ -366,6 +446,8 @@ class _ReferencePickerScreenState extends ConsumerState<ReferencePickerScreen> {
                                     showVerseSelector: widget.showVerseSelector,
                                     selectedChapterModel: chapterForBook,
                                     compact: true,
+                                    selectedChapterKey: _selectedChapterKey,
+                                    selectedVerseKey: _selectedVerseKey,
                                     onChapterTap: (chapterNumber) {
                                       if (!widget.showVerseSelector) {
                                         _selectReference(
@@ -492,6 +574,7 @@ class _ReferenceBookList extends StatelessWidget {
     required this.selectedChapter,
     required this.onBookTap,
     required this.dense,
+    this.expandedBookKey,
   });
 
   final List<BibleBook> books;
@@ -499,6 +582,7 @@ class _ReferenceBookList extends StatelessWidget {
   final int selectedChapter;
   final ValueChanged<BibleBook> onBookTap;
   final bool dense;
+  final Key? expandedBookKey;
 
   @override
   Widget build(BuildContext context) {
@@ -517,6 +601,7 @@ class _ReferenceBookList extends StatelessWidget {
           final book = books[index];
           final isSelected = book.id == expandedBookId;
           return Material(
+            key: isSelected ? expandedBookKey : null,
             color: isSelected
                 ? colors.secondaryContainer
                 : colors.surfaceContainerHighest,
@@ -563,6 +648,7 @@ class _ReferenceBookList extends StatelessWidget {
 
 class _ReferenceBookCard extends StatelessWidget {
   const _ReferenceBookCard({
+    super.key,
     required this.book,
     required this.isExpanded,
     required this.selectedChapter,
@@ -651,6 +737,8 @@ class _ReferenceSelectionPanel extends StatelessWidget {
     required this.onChapterSelect,
     required this.onVerseTap,
     required this.compact,
+    this.selectedChapterKey,
+    this.selectedVerseKey,
   });
 
   final BibleBook book;
@@ -663,6 +751,8 @@ class _ReferenceSelectionPanel extends StatelessWidget {
   final VoidCallback onChapterSelect;
   final ValueChanged<int> onVerseTap;
   final bool compact;
+  final Key? selectedChapterKey;
+  final Key? selectedVerseKey;
 
   @override
   Widget build(BuildContext context) {
@@ -695,6 +785,7 @@ class _ReferenceSelectionPanel extends StatelessWidget {
             final chapter = book.chapters[index];
             final isSelected = chapter.number == selectedChapter;
             return _ReferenceNumberTile(
+              key: isSelected ? selectedChapterKey : null,
               label: '${chapter.number}',
               isSelected: isSelected,
               colors: colors,
@@ -725,6 +816,7 @@ class _ReferenceSelectionPanel extends StatelessWidget {
                 final verse = selectedChapterModel.verses[index];
                 final isSelected = verse.number == selectedVerse;
                 return _ReferenceNumberTile(
+                  key: isSelected ? selectedVerseKey : null,
                   label: '${verse.number}',
                   isSelected: isSelected,
                   colors: colors,
@@ -816,6 +908,7 @@ class _ReferenceNumberGrid extends StatelessWidget {
 
 class _ReferenceNumberTile extends StatelessWidget {
   const _ReferenceNumberTile({
+    super.key,
     required this.label,
     required this.isSelected,
     required this.colors,

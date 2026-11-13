@@ -5,7 +5,11 @@ part of 'app_bible_repository.dart';
 // is part of the same library.
 
 // Formats supported for session-open (no on-disk write; bytes stay in memory).
+// BibleFormat.zip is included because the ZIP is decoded in-memory — no file
+// I/O is needed. SQLite is intentionally excluded (needs file-backed storage).
 const _sessionReadableFormats = <BibleFormat>{
+  BibleFormat.zip,
+  BibleFormat.usfm,
   BibleFormat.usfx,
   BibleFormat.osis,
   BibleFormat.zefania,
@@ -27,7 +31,8 @@ extension AppBibleRepositoryNetwork on AppBibleRepository {
   Future<List<BibleBook>> _doDownloadBible(String translationId) async {
     final memoryCached = peekLoadedTranslation(translationId);
     if (memoryCached != null) {
-      return _rememberLoadedTranslation(translationId, memoryCached);
+      activateLoadedTranslation(translationId);
+      return memoryCached;
     }
 
     if (await _isCacheValid(translationId)) {
@@ -85,10 +90,7 @@ extension AppBibleRepositoryNetwork on AppBibleRepository {
         translation: downloadedTranslation,
         sourceLocation: artifact.downloadUrl,
         sourceTypeOverride: BibleSourceType.download,
-      );
-      await _db.updateInstalledTranslationParserVersion(
-        translationId,
-        kCurrentParserVersion,
+        parserVersion: kCurrentParserVersion,
       );
       _sessionTranslationIds.remove(translationId);
 
@@ -118,7 +120,8 @@ extension AppBibleRepositoryNetwork on AppBibleRepository {
   ) async {
     final memoryCached = peekLoadedTranslation(translationId);
     if (memoryCached != null && _sessionTranslationIds.contains(translationId)) {
-      return _rememberLoadedTranslation(translationId, memoryCached);
+      activateLoadedTranslation(translationId);
+      return memoryCached;
     }
 
     final translation = await _getTranslation(
@@ -155,19 +158,62 @@ extension AppBibleRepositoryNetwork on AppBibleRepository {
   // HTTP fetch
   // ---------------------------------------------------------------------------
 
+  /// Hard ceiling on a single translation download. The largest real-world
+  /// artifacts (full SQLite Bibles) are well under this; anything bigger is
+  /// either a catalog mistake or a hostile server.
+  static const int _maxDownloadBytes = 100 * 1024 * 1024;
+
   Future<Uint8List> _fetchRemoteArtifactBytes(
     BibleTranslationArtifact artifact, {
     required String actionLabel,
   }) async {
     final uri = Uri.parse(artifact.downloadUrl);
+    if (uri.scheme != 'https') {
+      throw Exception(
+        'Refusing to $actionLabel: only https:// download URLs are allowed '
+        '(got "${uri.scheme}://").',
+      );
+    }
+
+    final declaredSize = artifact.sizeBytes;
+    if (declaredSize != null && declaredSize > _maxDownloadBytes) {
+      throw Exception(
+        'Refusing to $actionLabel: the file is larger than the '
+        '${_maxDownloadBytes ~/ (1024 * 1024)} MB download limit.',
+      );
+    }
+
     try {
-      final response = await http
-          .get(uri)
+      final response = await AppBibleRepository._httpClient
+          .send(http.Request('GET', uri))
           .timeout(AppBibleRepository._remoteRequestTimeout);
       if (response.statusCode != 200) {
         throw Exception('HTTP ${response.statusCode}');
       }
-      return response.bodyBytes;
+      if ((response.contentLength ?? 0) > _maxDownloadBytes) {
+        throw Exception(
+          'The file is larger than the '
+          '${_maxDownloadBytes ~/ (1024 * 1024)} MB download limit.',
+        );
+      }
+
+      // Stream the body and count as we go, so a server that lies about (or
+      // omits) Content-Length still can't fill memory without bound.
+      final builder = BytesBuilder(copy: false);
+      await for (final chunk in response.stream
+          .timeout(AppBibleRepository._remoteRequestTimeout)) {
+        builder.add(chunk);
+        if (builder.length > _maxDownloadBytes) {
+          throw Exception(
+            'The download exceeded the '
+            '${_maxDownloadBytes ~/ (1024 * 1024)} MB limit and was aborted.',
+          );
+        }
+      }
+      final bytes = builder.takeBytes();
+
+      _verifyArtifactChecksum(artifact, bytes);
+      return bytes;
     } on TimeoutException {
       throw Exception(
         'Timed out trying to $actionLabel. Please check your internet connection and try again.',
@@ -177,11 +223,31 @@ extension AppBibleRepositoryNetwork on AppBibleRepository {
     }
   }
 
+  /// Verifies the downloaded bytes against the catalog's SHA-256 checksum.
+  /// A missing checksum is allowed (older catalog entries); a mismatch means
+  /// the file was corrupted or tampered with in transit, so we refuse it.
+  void _verifyArtifactChecksum(
+    BibleTranslationArtifact artifact,
+    Uint8List bytes,
+  ) {
+    final expected = artifact.sha256?.trim().toLowerCase();
+    if (expected == null || expected.isEmpty) return;
+    final actual = sha256.convert(bytes).toString();
+    if (actual != expected) {
+      throw Exception(
+        'The downloaded file failed its integrity check (SHA-256 mismatch). '
+        'It may have been corrupted or tampered with — please try again.',
+      );
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // Install helpers
   // ---------------------------------------------------------------------------
 
   Set<BibleFormat> get _downloadSupportedFormats => <BibleFormat>{
+    BibleFormat.zip,
+    BibleFormat.usfm,
     BibleFormat.usfx,
     BibleFormat.osis,
     BibleFormat.zefania,
@@ -193,7 +259,13 @@ extension AppBibleRepositoryNetwork on AppBibleRepository {
     required BibleTranslationArtifact artifact,
     required List<int> responseBody,
   }) async {
-    switch (artifact.format) {
+    final normalizedFormat = normalizeBibleFormat(
+      declaredFormat: artifact.format,
+      fileName: artifact.fileName,
+      bytes: responseBody,
+    );
+
+    switch (normalizedFormat) {
       case BibleFormat.sqlite:
         final path = await _sqlitePathFor(translationId);
         await writeBinaryFile(path, responseBody);
@@ -208,24 +280,35 @@ extension AppBibleRepositoryNetwork on AppBibleRepository {
       case BibleFormat.usfx:
       case BibleFormat.osis:
       case BibleFormat.zefania:
-        final books = await _parseBibleBytes(responseBody);
+      case BibleFormat.zip:
+      case BibleFormat.usfm:
+        final books = await _parseBibleBytes(
+          responseBody,
+          sourceName: artifact.fileName,
+          hintedFormat: normalizedFormat,
+        );
         final path = await _sqlitePathFor(translationId);
         final translationDb = await _dbManager.open(translationId, path);
         await translationDb.insertBible(books);
         return books;
-      case BibleFormat.usfm:
       case BibleFormat.usfmDirectory:
-      case BibleFormat.zip:
       case BibleFormat.auto:
         throw Exception(
-          'The ${artifact.format.name} download path is not connected yet.',
+          'The ${normalizedFormat.name} download path is not connected yet.',
         );
     }
   }
 
-  Future<List<BibleBook>> _parseBibleBytes(List<int> bytes) async {
-    final content = utf8.decode(bytes);
-    final parsed = await compute(parseBibleToSerializable, content);
-    return parsed.map(mapSerializableBook).toList();
+  Future<List<BibleBook>> _parseBibleBytes(
+    List<int> bytes, {
+    String? sourceName,
+    BibleFormat? hintedFormat,
+  }) async {
+    final parsed = await parseBibleSourceBytes(
+      bytes,
+      sourceName: sourceName ?? 'document',
+      hintedFormat: hintedFormat,
+    );
+    return parsed.books;
   }
 }

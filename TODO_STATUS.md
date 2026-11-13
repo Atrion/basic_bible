@@ -57,18 +57,16 @@ Separate from feature backlog — these affect correctness, safety, and maintain
 | Hardcoded download URLs | Low | Built-in translation GitHub URLs are hardcoded with no version pinning or fallback mirrors. If the source repo moves or renames a file, downloads silently fail. |
 | Web storage still in-memory | Low | Non-web platforms use file-backed SQLite. Web still falls back to in-memory storage, so cached Bibles are lost on every page reload. |
 | Reader presentation still centered on one large state object | Medium | The reader refactor split files by responsibility, but much of the orchestration still lives on a single `_BibleTextViewState`. Future cleanup should extract more standalone widgets/controllers so the reader does not drift back into a giant mixed-responsibility state class. |
-| Claude memory docs may drift | Low | Repo docs and `.claude/memory` are now aligned, but the older memory files in `.claude/memory/` should be reviewed periodically so they do not diverge from `CONTEXT.md`, `TODO_STATUS.md`, and the annotations docs. |
 
 ---
 
 ## Recommended Next Step
 
-- `next` Add widget tests for the new personal-annotations flow: reader verse selection, saved-note markers, and Notes-screen open-in-reader navigation, then run a manual regression pass across document mode and continuous scrolling.
+- `next` Create the Google Cloud OAuth credentials (see `docs/google_sync_setup.md`) and run the first end-to-end Drive sync between two devices/platforms signed into the same account.
 
 **Why this first:**
 
-- The annotation repository/storage tests are now in place, but the highest-risk regressions are still in the UI layer.
-- The reader now has another interactive bottom-layer system, so selection/navigation/manual-scroll behavior needs stronger confidence.
+- Notes sync (schema v8 uuids/tombstones, shared merge engine, SQLite export/import, Google Sign-In + Drive appDataFolder sync) is implemented and unit-tested on the `google-sync` branch, but the Drive path cannot be exercised end to end until the OAuth client ids exist — and only the project owner can create those.
 
 ---
 
@@ -77,7 +75,6 @@ Separate from feature backlog — these affect correctness, safety, and maintain
 - `in_progress` Reader presentation code is now organized into `reader_view/` and `reference_picker/`; behavior should now be regression-checked instead of adding more UI complexity blindly.
 - `in_progress` The repo now follows an explicit MVVM-style feature layout with `application/view_models/` folders, but screens still need gradual cleanup so more orchestration moves out of large widget state classes over time.
 - `todo` After regression coverage improves, do a second reader architecture pass to extract more standalone widgets/controllers from `_BibleTextViewState` instead of continuing to grow the state class through `part` extensions alone.
-- `todo` Review the older `.claude/memory/*.md` files and either trim, merge, or refresh them so repo memory stays consistent with the main tracking docs.
 - `done` Personal notes and highlights now exist as a real user-data feature with dedicated models, repository/provider plumbing, additive Drift storage, a note editor, and a Notes screen.
 - `done` The reader now has working verse-list and document modes with comprehensive span rendering: red-letter, emphasis/bold/italic, divine names, proper names, selah, acrostic headings, structured footnotes and cross-references with inline markers, and source-driven introductions/tables.
 - `done` Parser/app pipeline preserves rich content: footnotes and cross-references now include spanIndex anchors; poetry/quote structure is consistent across all three formats with stanza groups and indentation; document-mode rendering reflects all preserved parser structures.
@@ -89,6 +86,7 @@ Separate from feature backlog — these affect correctness, safety, and maintain
 
 ## Completed Recently
 
+- `done` Notes sync + backup landed on `google-sync`: schema v8 gives every annotation a stable uuid and soft-delete tombstone; a pure per-uuid last-write-wins merge engine is shared by both paths; Settings → Notes gained SQLite export/import (merge-safe restore); Settings → Sync gained Google sign-in (google_sign_in on Android/iOS, OAuth loopback + secure storage on desktop) syncing one JSON file per note to the user's own Drive appDataFolder, with listing-only no-op syncs. Web is excluded from both in v1. README reminder: mention notes backup + Google sync once shipped.
 - `done` Added Bible-viewer-only desktop/web range selection: `Shift+Click` now selects verse ranges from a local reader anchor without changing picker/editor behavior, keeping future split-view note/document surfaces free from implicit desktop selection rules.
 - `done` Added reader display toggles for translator-addition brackets, word-tag underlines, proper-name underlines, and source bold styling; verse-selector preference now defaults to off.
 - `done` Added a `Show Source Details` reader toggle so verse-study metadata like `Strong's`, lemma, morphology, and quote speakers can stay hidden by default while parser support remains available.
