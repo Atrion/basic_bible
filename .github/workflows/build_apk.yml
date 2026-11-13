@@ -104,6 +104,10 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
+          # Pinned to the version this app was built with (see .metadata).
+          # Newer Flutter releases require a newer Gradle/AGP than the app's
+          # android/ folder uses. Bump only after upgrading android/.
+          flutter-version: '3.35.3'
           channel: stable
           cache: true
 
