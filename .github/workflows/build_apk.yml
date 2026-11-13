@@ -1,0 +1,165 @@
+# Added by From Gravel Hill Enterprises (https://fromgravelhill.ca/)
+name: Build Android APK Release
+
+# Manual trigger: Actions tab > "Build Android APK Release" > Run workflow.
+# Each run publishes a GitHub Release with the next revision number:
+# v0.01, v0.02, v0.03 ... (the number goes up by 0.01 every release).
+# To jump to a full release (e.g. 1.00), run with "version_override".
+on:
+  workflow_dispatch:
+    inputs:
+      version_override:
+        description: 'Optional full version to release instead of the next revision (e.g. 1.00)'
+        required: false
+        default: ''
+      notes:
+        description: 'Optional release notes'
+        required: false
+        default: ''
+
+permissions:
+  contents: write # create the release and upload the APK
+
+concurrency:
+  group: apk-release
+  cancel-in-progress: false # never cancel a release mid-way (keeps numbering safe)
+
+env:
+  # The app depends on a sibling package (path: ../bible_parser_flutter) that is
+  # not part of this repo. Set the repository variable PARSER_REPO
+  # (Settings > Secrets and variables > Actions > Variables) to "owner/repo".
+  PARSER_REPO: ${{ vars.PARSER_REPO || 'PopGTN/bible_parser_flutter' }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout app
+        uses: actions/checkout@v4
+
+      # pubspec.yaml expects the parser at ../bible_parser_flutter.
+      # Add a PARSER_REPO_TOKEN secret (a PAT with read access) if that repo is private.
+      - name: Checkout parser package
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.PARSER_REPO }}
+          token: ${{ secrets.PARSER_REPO_TOKEN || github.token }}
+          path: bible_parser_flutter
+
+      - name: Place parser beside the app
+        run: mv bible_parser_flutter ../bible_parser_flutter
+
+      - name: Work out next version
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OVERRIDE: ${{ inputs.version_override }}
+        run: |
+          set -euo pipefail
+          # Versions are tracked as integer hundredths: 0.01 -> 1, 0.10 -> 10, 1.00 -> 100.
+          if [ -n "$OVERRIDE" ]; then
+            if ! [[ "$OVERRIDE" =~ ^[0-9]+\.[0-9]{2}$ ]]; then
+              echo "::error::version_override must look like 1.00 or 0.25 (two decimals)"; exit 1
+            fi
+            WHOLE="${OVERRIDE%%.*}"; FRAC="${OVERRIDE##*.}"
+            N=$(( 10#$WHOLE * 100 + 10#$FRAC ))
+          else
+            LAST=$(gh release list --repo "$GITHUB_REPOSITORY" --limit 1000 --json tagName \
+              --jq '.[].tagName' | grep -E '^v[0-9]+\.[0-9]{2}$' | sed 's/^v//' \
+              | awk -F. '{ printf "%d\n", $1*100 + $2 }' | sort -n | tail -1 || true)
+            N=$(( ${LAST:-0} + 1 ))
+          fi
+          VERSION=$(printf '%d.%02d' $(( N / 100 )) $(( N % 100 )))
+          if gh release view "v$VERSION" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::error::Release v$VERSION already exists"; exit 1
+          fi
+          echo "version=$VERSION"  >> "$GITHUB_OUTPUT"
+          echo "build_number=$N"   >> "$GITHUB_OUTPUT"
+          echo "Releasing v$VERSION (versionCode $N)"
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Flutter version
+        run: flutter --version
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      # Optional: provide these 4 secrets to sign with your own key so each
+      # release can update the previous one on a phone:
+      #   ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD,
+      #   ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD
+      - name: Configure release signing
+        id: signing
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "$KEYSTORE_B64" | base64 -d > android/release.jks
+            {
+              echo "storeFile=release.jks"
+              echo "storePassword=$KEYSTORE_PASSWORD"
+              echo "keyAlias=$KEY_ALIAS"
+              echo "keyPassword=$KEY_PASSWORD"
+            } > android/key.properties
+            echo "signed=release key" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::No keystore secrets set - APK is debug-signed and cannot update a previously installed release signed on another build."
+            echo "signed=debug key" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build APK
+        run: |
+          flutter build apk --release \
+            --build-name="${{ steps.version.outputs.version }}" \
+            --build-number="${{ steps.version.outputs.build_number }}"
+
+      - name: Name the APK
+        run: |
+          mkdir -p releases
+          cp build/app/outputs/flutter-apk/app-release.apk \
+             "releases/basic_bible-v${{ steps.version.outputs.version }}.apk"
+          ls -lh releases
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+          SIGNED: ${{ steps.signing.outputs.signed }}
+          NOTES: ${{ inputs.notes }}
+        run: |
+          set -euo pipefail
+          {
+            echo "Basic Bible App v$VERSION"
+            echo
+            [ -n "$NOTES" ] && { echo "$NOTES"; echo; }
+            echo "Signed with: $SIGNED"
+          } > release_notes.md
+          gh release create "v$VERSION" "releases/basic_bible-v$VERSION.apk" \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "v$VERSION" \
+            --notes-file release_notes.md
+
+      - name: Keep a copy as a workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: basic_bible-v${{ steps.version.outputs.version }}
+          path: releases/*.apk
+          if-no-files-found: error
