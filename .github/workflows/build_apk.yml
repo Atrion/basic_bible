@@ -39,9 +39,11 @@ jobs:
       - name: Checkout app
         uses: actions/checkout@v4
 
-      # pubspec.yaml expects the parser at ../bible_parser_flutter.
-      # Add a PARSER_REPO_TOKEN secret (a PAT with read access) if that repo is private.
+      # Preferred: commit the parser package into this repo as
+      # ./bible_parser_flutter/ and it is used as-is. Otherwise it is checked out
+      # from PARSER_REPO.
       - name: Checkout parser package
+        if: ${{ hashFiles('bible_parser_flutter/pubspec.yaml') == '' }}
         uses: actions/checkout@v4
         with:
           repository: ${{ env.PARSER_REPO }}
@@ -50,6 +52,20 @@ jobs:
 
       - name: Place parser beside the app
         run: mv bible_parser_flutter ../bible_parser_flutter
+
+      # The app needs the extended parser (VerseSpan, Footnote, CrossReference,
+      # DocumentBlock, TocLabel). Fail early with a clear message if the package
+      # found is an older/upstream version without them.
+      - name: Verify parser package has the models the app needs
+        run: |
+          missing=""
+          for c in VerseSpan Footnote CrossReference DocumentBlock TocLabel; do
+            grep -rqE "class $c\b|enum $c\b" ../bible_parser_flutter/lib || missing="$missing $c"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::bible_parser_flutter is missing:$missing. The app was written against a newer local copy of the parser. Commit that copy into this repo as ./bible_parser_flutter/ (or point PARSER_REPO at the repo that has it)."
+            exit 1
+          fi
 
       - name: Work out next version
         id: version
