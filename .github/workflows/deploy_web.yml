@@ -1,8 +1,8 @@
 name: Deploy Flutter Web to GitHub Pages
 
+# Manual only: Actions tab > "Deploy Flutter Web to GitHub Pages" > Run workflow.
+# (Releases of the Android APK are handled by build_apk.yml on every merge.)
 on:
-  push:
-    branches: [main, Stable] # add any other branch you merge into
   workflow_dispatch:
 
 permissions:
