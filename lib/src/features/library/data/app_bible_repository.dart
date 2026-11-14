@@ -26,6 +26,24 @@ export 'bible_import_service.dart' show BibleImportDraft, BibleImportRequest;
 part 'app_bible_repository_loading.dart';
 part 'app_bible_repository_network.dart';
 
+/// Rolling log of Bible-loading steps. The reader shows it on screen if loading
+/// takes unusually long, so a stall can be diagnosed without a computer.
+final ValueNotifier<List<String>> bibleLoadLog = ValueNotifier<List<String>>(
+  const [],
+);
+final Stopwatch _bibleLoadClock = Stopwatch()..start();
+
+void logBibleLoad(String message) {
+  final seconds = (_bibleLoadClock.elapsedMilliseconds / 1000).toStringAsFixed(1);
+  final line = '${seconds}s  $message';
+  debugPrint('[bible-load] $line');
+  // Deferred so listeners are never notified in the middle of a widget build.
+  scheduleMicrotask(() {
+    final next = [...bibleLoadLog.value, line];
+    bibleLoadLog.value = next.length > 30 ? next.sublist(next.length - 30) : next;
+  });
+}
+
 class AppBibleRepository {
   AppBibleRepository(this._db, this._dbManager, this._catalogService)
     : _importService = AppBibleImportService(db: _db, dbManager: _dbManager);

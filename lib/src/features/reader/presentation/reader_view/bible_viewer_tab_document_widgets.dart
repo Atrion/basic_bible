@@ -181,8 +181,31 @@ class _TableBlockSection extends StatelessWidget {
   }
 }
 
-class _LoadingView extends StatelessWidget {
+class _LoadingView extends StatefulWidget {
   const _LoadingView();
+
+  @override
+  State<_LoadingView> createState() => _LoadingViewState();
+}
+
+class _LoadingViewState extends State<_LoadingView> {
+  Timer? _slowTimer;
+  bool _showDetails = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // If loading takes unusually long, show what the loader is doing.
+    _slowTimer = Timer(const Duration(seconds: 8), () {
+      if (mounted) setState(() => _showDetails = true);
+    });
+  }
+
+  @override
+  void dispose() {
+    _slowTimer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -190,7 +213,7 @@ class _LoadingView extends StatelessWidget {
     final shimmerBase = colors.surfaceContainerHigh;
     final shimmerHighlight = colors.surfaceContainerHighest;
 
-    return Shimmer.fromColors(
+    final skeleton = Shimmer.fromColors(
       baseColor: shimmerBase,
       highlightColor: shimmerHighlight,
       child: ListView.builder(
@@ -198,6 +221,48 @@ class _LoadingView extends StatelessWidget {
         itemCount: 12,
         itemBuilder: (context, index) => _SkeletonVerseRow(index: index),
       ),
+    );
+    if (!_showDetails) return skeleton;
+
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        skeleton,
+        Align(
+          alignment: Alignment.bottomCenter,
+          child: Card(
+            margin: const EdgeInsets.all(12),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: ValueListenableBuilder<List<String>>(
+                valueListenable: bibleLoadLog,
+                builder: (context, lines, _) => Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Still loading the Bible... (first launch can take a minute)',
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                    const SizedBox(height: 6),
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 180),
+                      child: SingleChildScrollView(
+                        child: SelectableText(
+                          lines.isEmpty
+                              ? 'No loading steps recorded yet.'
+                              : lines.join('\n'),
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
