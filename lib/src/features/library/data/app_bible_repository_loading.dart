@@ -78,8 +78,9 @@ extension AppBibleRepositoryLoading on AppBibleRepository {
           if (books.isNotEmpty) {
             return _rememberLoadedTranslation(translationId, books);
           }
-        } catch (_) {
+        } catch (e, st) {
           // Asset restore failed or produced no data — fall through to network.
+          debugPrint('Built-in ${translation.id} restore failed: $e\n$st');
         }
         // Clean up any partial state before falling back to a network download.
         await _invalidateCache(translationId);
@@ -291,14 +292,18 @@ extension AppBibleRepositoryLoading on AppBibleRepository {
       );
     }
     final byteData = await rootBundle.load(assetPath);
-    final bytes = assetPath.endsWith('.gz')
-        ? _gunzipAssetBytes(byteData)
-        : byteData.buffer.asUint8List(
-            byteData.offsetInBytes,
-            byteData.lengthInBytes,
-          );
+    final raw = byteData.buffer.asUint8List(
+      byteData.offsetInBytes,
+      byteData.lengthInBytes,
+    );
     _dbManager.close(translation.id);
-    await writeBinaryFile(await _sqlitePathFor(translation.id), bytes);
+    final destination = await _sqlitePathFor(translation.id);
+    if (assetPath.endsWith('.gz')) {
+      // Decompress + write off the UI thread (see writeGunzippedFile).
+      await writeGunzippedFile(destination, Uint8List.fromList(raw));
+    } else {
+      await writeBinaryFile(destination, raw);
+    }
   }
 
   bool _isImportedSqliteTranslation(BibleTranslation translation) =>

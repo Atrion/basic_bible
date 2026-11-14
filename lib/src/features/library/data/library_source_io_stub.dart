@@ -23,6 +23,15 @@ Future<void> writeBinaryFile(String destinationPath, List<int> bytes) async {
   );
 }
 
+Future<void> writeGunzippedFile(
+  String destinationPath,
+  List<int> compressed,
+) async {
+  throw UnsupportedError(
+    'Writing raw Bible files is unavailable on this platform.',
+  );
+}
+
 Future<void> clearDirectoryFiles(
   String directoryPath, {
   String? extension,
