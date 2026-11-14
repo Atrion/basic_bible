@@ -220,6 +220,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final tabs = _buildTabs(t, isSmall);
     final currentTab = tabs[_currentIndex];
     final isBibleTab = _currentIndex == 0; // Bible is the first (main) tab
+    final navTheme = Theme.of(context);
+    final navBarColor =
+        navTheme.bottomNavigationBarTheme.backgroundColor ??
+        (navTheme.useMaterial3
+            ? navTheme.colorScheme.surfaceContainer
+            : navTheme.canvasColor);
 
     return Scaffold(
       // Top bar changes depending on device size + tab
@@ -255,12 +261,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       // Bottom navigation only for small screens
       bottomNavigationBar: isWide
           ? null
-          : SizeTransition(
+          : Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizeTransition(
               sizeFactor: _bottomNavController.drive(
                 CurveTween(curve: Curves.easeInOut),
               ),
               axisAlignment: -1,
-              child: Theme(
+              child: MediaQuery.removeViewPadding(
+                context: context,
+                removeBottom: true,
+                child: Theme(
                 // The bottom tabs should switch immediately without the
                 // default Material ripple since this shell is being styled
                 // more like a static app dock than a tappable card row.
@@ -286,6 +298,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       .toList(),
                 ),
               ),
+              ),
+            ),
+                // Always reserve the system navigation-bar area (3-button or
+                // gesture bar), even while the tabs are hidden by scrolling.
+                // Scaffold strips bottom padding from the body whenever a
+                // bottomNavigationBar exists, so without this the floating
+                // chapter bar and snackbars slide behind the system buttons.
+                ColoredBox(
+                  color: navBarColor,
+                  child: SizedBox(
+                    width: double.infinity,
+                    height: MediaQuery.of(context).viewPadding.bottom,
+                  ),
+                ),
+              ],
             ),
     );
   }
