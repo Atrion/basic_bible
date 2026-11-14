@@ -71,18 +71,25 @@ extension AppBibleRepositoryLoading on AppBibleRepository {
           logBibleLoad('first launch: unpacking bundled Bible...');
           await _restoreBuiltInSqliteCache(translation: translation);
           logBibleLoad('bundled Bible unpacked');
-          await _db.upsertInstalledTranslation(
-            translation: translation,
-            sourceLocation: sourceLocationForTranslation(translation),
-            sourceTypeOverride: translation.sourceType,
-            parserVersion: kCurrentParserVersion,
-          );
+          logBibleLoad('saving install record...');
+          await _db
+              .upsertInstalledTranslation(
+                translation: translation,
+                sourceLocation: sourceLocationForTranslation(translation),
+                sourceTypeOverride: translation.sourceType,
+                parserVersion: kCurrentParserVersion,
+              )
+              .timeout(const Duration(seconds: 40));
+          logBibleLoad('install record saved');
           final path = await _sqlitePathFor(translationId);
+          logBibleLoad('opening Bible database file...');
           final translationDb = await _dbManager.open(translationId, path);
           // Use shell load (no verses) — the SQLite file itself is the cache.
           // Verses are hydrated on-demand via loadChapterVerses/getChapter().
-          logBibleLoad('opening Bible database...');
-          final books = await translationDb.getBooksShell();
+          logBibleLoad('reading book list...');
+          final books = await translationDb.getBooksShell().timeout(
+            const Duration(seconds: 40),
+          );
           logBibleLoad('read ${books.length} books');
           if (books.isNotEmpty) {
             return _rememberLoadedTranslation(translationId, books);
@@ -93,6 +100,7 @@ extension AppBibleRepositoryLoading on AppBibleRepository {
           debugPrint('Built-in ${translation.id} restore failed: $e\n$st');
         }
         // Clean up any partial state before falling back to a network download.
+        logBibleLoad('falling back to downloading the Bible...');
         await _invalidateCache(translationId);
         await _db.deleteInstalledTranslation(translationId);
         return downloadBible(translationId);
