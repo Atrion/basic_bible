@@ -10,16 +10,21 @@ extension AppBibleRepositoryLoading on AppBibleRepository {
   // ---------------------------------------------------------------------------
 
   Future<List<BibleBook>> loadLocalBibleShell(String translationId) async {
+    logBibleLoad('shell load requested for "$translationId"');
     final memoryCached = peekLoadedTranslation(translationId);
     if (memoryCached != null) {
       activateLoadedTranslation(translationId);
       return memoryCached;
     }
 
-    if (await _isCacheValid(translationId)) {
+    logBibleLoad('checking app database for an installed copy...');
+    final cacheValid = await _isCacheValid(translationId);
+    logBibleLoad('installed copy found: $cacheValid');
+    if (cacheValid) {
       final path = await _sqlitePathFor(translationId);
       final translationDb = await _dbManager.open(translationId, path);
       final shell = await translationDb.getBooksShell();
+      logBibleLoad('read ${shell.length} books from installed copy');
       if (shell.isNotEmpty) return shell;
     }
 
@@ -63,7 +68,9 @@ extension AppBibleRepositoryLoading on AppBibleRepository {
 
       if (_isBuiltInSqliteTranslation(translation)) {
         try {
+          logBibleLoad('first launch: unpacking bundled Bible...');
           await _restoreBuiltInSqliteCache(translation: translation);
+          logBibleLoad('bundled Bible unpacked');
           await _db.upsertInstalledTranslation(
             translation: translation,
             sourceLocation: sourceLocationForTranslation(translation),
@@ -74,11 +81,14 @@ extension AppBibleRepositoryLoading on AppBibleRepository {
           final translationDb = await _dbManager.open(translationId, path);
           // Use shell load (no verses) — the SQLite file itself is the cache.
           // Verses are hydrated on-demand via loadChapterVerses/getChapter().
+          logBibleLoad('opening Bible database...');
           final books = await translationDb.getBooksShell();
+          logBibleLoad('read ${books.length} books');
           if (books.isNotEmpty) {
             return _rememberLoadedTranslation(translationId, books);
           }
         } catch (e, st) {
+          logBibleLoad('unpacking failed: $e');
           // Asset restore failed or produced no data — fall through to network.
           debugPrint('Built-in ${translation.id} restore failed: $e\n$st');
         }
@@ -137,6 +147,7 @@ extension AppBibleRepositoryLoading on AppBibleRepository {
 
       return _rememberLoadedTranslation(translationId, books);
     } catch (e) {
+      logBibleLoad('load failed: $e');
       throw Exception('Failed to load local Bible: $e');
     }
   }
@@ -170,10 +181,13 @@ extension AppBibleRepositoryLoading on AppBibleRepository {
 
     final path = await _sqlitePathFor(translationId);
     if (usesFileBackedStorage && !await pathExists(path)) {
+      logBibleLoad('chapter $bookId $chapterNumber: database file missing');
       return null;
     }
+    logBibleLoad('loading chapter $bookId $chapterNumber...');
     final translationDb = await _dbManager.open(translationId, path);
     final chapter = await translationDb.getChapter(bookId, chapterNumber);
+    logBibleLoad('chapter $bookId $chapterNumber loaded: ${chapter != null}');
     if (chapter == null) return null;
     return _rememberHydratedChapter(translationId, bookId, chapter);
   }
