@@ -229,7 +229,7 @@ class _LoadingViewState extends State<_LoadingView> {
       children: [
         skeleton,
         Align(
-          alignment: Alignment.bottomCenter,
+          alignment: Alignment.topCenter,
           child: Card(
             margin: const EdgeInsets.all(12),
             child: Padding(
@@ -246,7 +246,7 @@ class _LoadingViewState extends State<_LoadingView> {
                     ),
                     const SizedBox(height: 6),
                     ConstrainedBox(
-                      constraints: const BoxConstraints(maxHeight: 180),
+                      constraints: const BoxConstraints(maxHeight: 240),
                       child: SingleChildScrollView(
                         child: SelectableText(
                           lines.isEmpty
