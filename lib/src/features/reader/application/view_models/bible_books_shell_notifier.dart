@@ -71,9 +71,17 @@ class BibleBooksShellNotifier
         }
       }
 
-      if (mounted &&
+      final deliver =
+          mounted &&
           loadGeneration == _loadGeneration &&
-          requestedTranslationId == _currentTranslationId) {
+          requestedTranslationId == _currentTranslationId;
+      logBibleLoad(
+        'shell ready (${books.length} books): '
+        '${deliver ? "shown" : "DISCARDED"} '
+        '[mounted=$mounted, generation=$loadGeneration/$_loadGeneration, '
+        'translation=$requestedTranslationId/$_currentTranslationId]',
+      );
+      if (deliver) {
         state = AsyncValue.data(books);
       }
     } on BibleParserException catch (e, st) {

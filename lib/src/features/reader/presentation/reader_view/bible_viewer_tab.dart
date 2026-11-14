@@ -343,10 +343,16 @@ class _BibleViewerTabState extends ConsumerState<BibleViewerTab> {
                     ),
                   )
                 : const _ErrorView(message: 'Chapter not found'),
-            loading: () => const _LoadingView(),
+            loading: () {
+              logBibleLoad('viewer: books ready, waiting for the chapter text');
+              return const _LoadingView();
+            },
             error: (error, stack) => _ErrorView(message: 'Error: $error'),
           ),
-          loading: () => const _LoadingView(),
+          loading: () {
+            logBibleLoad('viewer: waiting for the book list');
+            return const _LoadingView();
+          },
           error: (error, stack) =>
               _ErrorView(message: 'Failed to load Bible: $error'),
         );
