@@ -8,18 +8,15 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:basic_bible/l10n/app_localizations.dart';
 
 // Screens
-import 'features/auth/presentation/login_screen.dart';
 import 'features/home/presentation/home_screen.dart';
 import 'features/library/presentation/versions_screen.dart';
 import 'features/annotations/presentation/notes_screen.dart';
-import 'features/settings/application/view_models/app_launch_preferences_view_models.dart';
-import 'views/placeholder/other_screen.dart';
 import 'features/settings/presentation/settings_screen.dart';
 import 'features/settings/presentation/advanced_settings_screen.dart';
+import 'features/settings/presentation/language_screen.dart';
 import 'views/placeholder/coming_soon_screen.dart';
 
 // Providers
-import 'features/auth/application/view_models/auth_view_model.dart';
 import 'features/settings/application/view_models/theme_view_model.dart'
     hide themeDataMap;
 import 'features/settings/application/view_models/language_view_model.dart';
@@ -35,7 +32,6 @@ class MyApp extends ConsumerStatefulWidget {
 }
 
 class _MyAppState extends ConsumerState<MyApp> {
-  final _routerRefresh = _RouterRefreshNotifier();
   late final GoRouter _router;
   late final AppLifecycleListener _appLifecycleListener;
   StreamSubscription<List<ConnectivityResult>>? _connectivitySubscription;
@@ -100,50 +96,10 @@ class _MyAppState extends ConsumerState<MyApp> {
       },
       onHide: _stopConnectivityListener,
     );
-    // Keep the redirect logic reactive to auth/login-requirement changes via
-    // refreshListenable instead of rebuilding the whole GoRouter on every
-    // MyApp rebuild. A previous version built GoRouter inline in build(),
-    // which discarded the entire navigation stack back to initialLocation on
-    // *any* watched-provider change — including a harmless theme or language
-    // switch while sitting on, say, the Settings screen.
-    ref.listenManual(authProvider, (_, _) => _routerRefresh.refresh());
-    ref.listenManual(
-      requireDummyLoginProvider,
-      (_, _) => _routerRefresh.refresh(),
-    );
-    // Only sign-in changes affect routing; sync phase changes must not
-    // re-run redirects on every sync.
-    ref.listenManual(
-      syncControllerProvider.select((s) => s.isSignedIn),
-      (_, _) => _routerRefresh.refresh(),
-    );
-
-    final isLoggedIn = isAppAuthenticated(
-      localLoggedIn: ref.read(authProvider),
-      syncState: ref.read(syncControllerProvider),
-    );
-    final requireDummyLogin = ref.read(requireDummyLoginProvider);
-
     _router = GoRouter(
-      initialLocation: requireDummyLogin && !isLoggedIn ? '/login' : '/home',
-      refreshListenable: _routerRefresh,
+      initialLocation: '/home',
       routes: [
-        GoRoute(
-          path: '/',
-          builder: (context, state) {
-            final isLoggedIn = isAppAuthenticated(
-              localLoggedIn: ref.read(authProvider),
-              syncState: ref.read(syncControllerProvider),
-            );
-            return ref.read(requireDummyLoginProvider) && !isLoggedIn
-                ? const LoginScreen()
-                : const HomeScreen();
-          },
-        ),
-        GoRoute(
-          path: '/login',
-          builder: (context, state) => const LoginScreen(),
-        ),
+        GoRoute(path: '/', builder: (context, state) => const HomeScreen()),
         GoRoute(
           path: '/coming-soon/:feature',
           builder: (context, state) => ComingSoonScreen(
@@ -154,7 +110,10 @@ class _MyAppState extends ConsumerState<MyApp> {
           path: '/home',
           builder: (context, state) => const HomeScreen(),
           routes: [
-            GoRoute(path: 'other', builder: (context, state) => OtherScreen()),
+            GoRoute(
+              path: 'language',
+              builder: (context, state) => const LanguageScreen(),
+            ),
             GoRoute(
               path: 'translations',
               builder: (context, state) => const VersionsScreen(),
@@ -176,23 +135,6 @@ class _MyAppState extends ConsumerState<MyApp> {
           ],
         ),
       ],
-      redirect: (context, state) {
-        final loggedIn = isAppAuthenticated(
-          localLoggedIn: ref.read(authProvider),
-          syncState: ref.read(syncControllerProvider),
-        );
-        final requireLogin = ref.read(requireDummyLoginProvider);
-        final goingToLogin = state.uri.toString() == '/login';
-
-        if (!requireLogin) {
-          if (goingToLogin) return '/home';
-          return null;
-        }
-
-        if (!loggedIn && !goingToLogin) return '/login';
-        if (loggedIn && goingToLogin) return '/home';
-        return null;
-      },
     );
     Future.microtask(_runRetentionCleanupIfDue);
   }
@@ -201,7 +143,6 @@ class _MyAppState extends ConsumerState<MyApp> {
   void dispose() {
     _stopConnectivityListener();
     _appLifecycleListener.dispose();
-    _routerRefresh.dispose();
     super.dispose();
   }
 
@@ -230,8 +171,4 @@ class _MyAppState extends ConsumerState<MyApp> {
       themeMode: mapThemeMode(appTheme),
     );
   }
-}
-
-class _RouterRefreshNotifier extends ChangeNotifier {
-  void refresh() => notifyListeners();
 }

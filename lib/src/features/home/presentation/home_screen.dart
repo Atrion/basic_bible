@@ -16,8 +16,6 @@ import 'package:basic_bible/src/services/font_size_service.dart';
 import 'package:basic_bible/src/widgets/horizontal_mouse_scroll_list.dart';
 import 'package:basic_bible/src/widgets/theme_preview_card.dart';
 
-import 'home_tab.dart';
-
 class _HomeTabDefinition {
   const _HomeTabDefinition({
     required this.widget,
@@ -221,7 +219,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
     final tabs = _buildTabs(t, isSmall);
     final currentTab = tabs[_currentIndex];
-    final isBibleTab = _currentIndex == 1;
+    final isBibleTab = _currentIndex == 0; // Bible is the first (main) tab
 
     return Scaffold(
       // Top bar changes depending on device size + tab
@@ -294,11 +292,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   List<_HomeTabDefinition> _buildTabs(AppLocalizations t, bool isSmall) {
     return [
-      _HomeTabDefinition(
-        widget: const HomeTab(),
-        title: t.home,
-        icon: Icons.home,
-      ),
       _HomeTabDefinition(
         widget: BibleViewerTab(
           key: _bibleViewerKey,
