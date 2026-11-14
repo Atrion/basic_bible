@@ -1,1 +1,0 @@
-/home/joshua/Documents/Flutter\ Apps/Bible\ App\ Projects/basic_bible/native/usfm_parser/target/debug/libbasic_bible_usfm_parser.so: /home/joshua/Documents/Flutter\ Apps/Bible\ App\ Projects/basic_bible/native/usfm_parser/src/lib.rs
