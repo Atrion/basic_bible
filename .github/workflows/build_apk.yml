@@ -1,11 +1,19 @@
 # Added by From Gravel Hill Enterprises (https://fromgravelhill.ca/)
 name: Build Android APK Release
 
-# Manual trigger: Actions tab > "Build Android APK Release" > Run workflow.
+# Runs automatically on every push to main, and can also be started by hand
+# (Actions tab > "Build Android APK Release" > Run workflow).
 # Each run publishes a GitHub Release with the next revision number:
 # v0.01, v0.02, v0.03 ... (the number goes up by 0.01 every release).
-# To jump to a full release (e.g. 1.00), run with "version_override".
+# To jump to a full release (e.g. 1.00), run it manually with "version_override".
 on:
+  push:
+    branches: [main]
+    paths-ignore: # docs-only pushes don't need a new APK
+      - '**.md'
+      - 'docs/**'
+      - '.vscode/**'
+      - '.claude/**'
   workflow_dispatch:
     inputs:
       version_override:
@@ -117,6 +125,18 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
+      # Quality gate: if analysis finds errors or any test fails, the job stops
+      # here and NO release is published (the version number is not used up).
+      # Lints/warnings are reported in the log but do not block a release.
+      - name: Analyze
+        run: flutter analyze --no-fatal-infos --no-fatal-warnings
+
+      - name: Install SQLite (used by the database tests)
+        run: sudo apt-get update && sudo apt-get install -y libsqlite3-dev
+
+      - name: Run tests
+        run: flutter test
+
       # Optional: provide these 4 secrets to sign with your own key so each
       # release can update the previous one on a phone:
       #   ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD,
@@ -144,11 +164,21 @@ jobs:
             echo "signed=debug key" >> "$GITHUB_OUTPUT"
           fi
 
+      # Optional: add a GOOGLE_WEB_CLIENT_ID repository secret to enable Google
+      # sign-in (notes sync/backup) in the built app. Without it the app still
+      # works, but the Google sign-in option will not.
       - name: Build APK
+        env:
+          GOOGLE_WEB_CLIENT_ID: ${{ secrets.GOOGLE_WEB_CLIENT_ID }}
         run: |
+          DEFINES=()
+          if [ -n "$GOOGLE_WEB_CLIENT_ID" ]; then
+            DEFINES+=("--dart-define=GOOGLE_WEB_CLIENT_ID=$GOOGLE_WEB_CLIENT_ID")
+          fi
           flutter build apk --release \
             --build-name="${{ steps.version.outputs.version }}" \
-            --build-number="${{ steps.version.outputs.build_number }}"
+            --build-number="${{ steps.version.outputs.build_number }}" \
+            "${DEFINES[@]}"
 
       - name: Name the APK
         run: |
@@ -162,7 +192,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.version.outputs.version }}
           SIGNED: ${{ steps.signing.outputs.signed }}
-          NOTES: ${{ inputs.notes }}
+          NOTES: ${{ inputs.notes || github.event.head_commit.message }}
         run: |
           set -euo pipefail
           {

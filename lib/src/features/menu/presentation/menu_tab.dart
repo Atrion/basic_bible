@@ -1,5 +1,3 @@
-import 'package:basic_bible/src/features/auth/application/view_models/auth_view_model.dart';
-import 'package:basic_bible/src/features/settings/application/view_models/app_launch_preferences_view_models.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -40,7 +38,6 @@ class MenuTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = AppLocalizations.of(context)!;
-    final requireDummyLogin = ref.watch(requireDummyLoginProvider);
 
     return ListView(
       padding: const EdgeInsets.all(8.0),
@@ -100,7 +97,7 @@ class MenuTab extends ConsumerWidget {
         ListTile(
           leading: const Icon(Icons.language),
           title: Text("Language"),
-          onTap: () => context.go('/coming-soon/language'),
+          onTap: () => context.go('/home/language'),
         ),
         // Settings
         ListTile(
@@ -108,21 +105,6 @@ class MenuTab extends ConsumerWidget {
           title: Text(t.settings),
           onTap: () => context.go('/home/settings'),
         ),
-
-        const Divider(),
-
-        if (requireDummyLogin)
-          ListTile(
-            leading: const Icon(Icons.logout, color: Colors.redAccent),
-            title: Text(
-              t.logout,
-              style: const TextStyle(color: Colors.redAccent),
-            ),
-            onTap: () {
-              ref.read(authProvider.notifier).logout();
-              // context.go('/login');
-            },
-          ),
       ],
     );
   }

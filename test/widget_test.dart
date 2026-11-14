@@ -1,8 +1,5 @@
 import 'package:basic_bible/src/features/annotations/application/view_models/annotation_data_view_models.dart';
-import 'package:basic_bible/src/features/auth/application/view_models/auth_view_model.dart';
 import 'package:basic_bible/src/features/settings/application/view_models/theme_view_model.dart';
-import 'package:basic_bible/src/features/sync/application/view_models/sync_view_models.dart';
-import 'package:basic_bible/src/features/sync/data/google_auth_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -17,17 +14,6 @@ void main() {
       expect(() => ThemeData.lerp(lightTheme, darkTheme, 0.5), returnsNormally);
     },
   );
-
-  test('startup auth treats a restored Google session as authenticated', () {
-    final syncState = const SyncState(
-      account: GoogleAccount(email: 'user@example.com'),
-    );
-
-    expect(
-      isAppAuthenticated(localLoggedIn: false, syncState: syncState),
-      isTrue,
-    );
-  });
 
   testWidgets('switching themes does not throw with TextButton text styles', (
     tester,

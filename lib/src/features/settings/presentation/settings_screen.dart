@@ -1,7 +1,6 @@
 import 'package:basic_bible/l10n/app_localizations.dart';
 import 'package:basic_bible/src/features/annotations/application/view_models/annotation_preferences_view_models.dart';
 import 'package:basic_bible/src/features/reader/application/view_models/reader_preferences_view_models.dart';
-import 'package:basic_bible/src/features/settings/application/view_models/app_launch_preferences_view_models.dart';
 import 'package:basic_bible/src/features/settings/application/view_models/reader_display_preferences_view_models.dart';
 import 'package:basic_bible/src/features/sync/presentation/notes_backup_tiles.dart';
 import 'package:basic_bible/src/features/sync/presentation/sync_settings_section.dart';
@@ -35,8 +34,6 @@ class SettingsScreen extends ConsumerWidget {
     );
     final useSourceBoldStyling = ref.watch(useSourceBoldStylingProvider);
     final showSourceDetails = ref.watch(showSourceDetailsProvider);
-    final openBibleTabByDefault = ref.watch(openBibleTabByDefaultProvider);
-    final requireDummyLogin = ref.watch(requireDummyLoginProvider);
     final colors = Theme.of(context).colorScheme;
 
     final languages = {
@@ -101,37 +98,6 @@ class SettingsScreen extends ConsumerWidget {
                   },
                 );
               }).toList(),
-            ),
-            const SizedBox(height: 20),
-
-            Text(
-              'App Startup',
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 10),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Open Bible Tab By Default'),
-              subtitle: const Text(
-                'Start on the Bible page instead of the Home tab when the app opens.',
-              ),
-              value: openBibleTabByDefault,
-              onChanged: (value) {
-                ref
-                    .read(openBibleTabByDefaultProvider.notifier)
-                    .setEnabled(value);
-              },
-            ),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Require Dummy Login'),
-              subtitle: const Text(
-                'Keep the sample login screen turned on before entering the app.',
-              ),
-              value: requireDummyLogin,
-              onChanged: (value) {
-                ref.read(requireDummyLoginProvider.notifier).setEnabled(value);
-              },
             ),
             const SizedBox(height: 20),
 

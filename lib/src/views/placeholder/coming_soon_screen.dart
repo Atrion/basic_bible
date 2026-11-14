@@ -13,7 +13,6 @@ class ComingSoonScreen extends StatelessWidget {
     'about': 'About',
     'donate': 'Donate',
     'help': 'Help',
-    'language': 'Language',
   };
 
   @override
