@@ -24,7 +24,11 @@ extension AppBibleRepositoryNetwork on AppBibleRepository {
     return _downloadInFlight.putIfAbsent(
       translationId,
       () => _doDownloadBible(translationId)
-          .whenComplete(() => _downloadInFlight.remove(translationId)),
+          .whenComplete(() {
+            // Block body on purpose: an arrow function would return the removed
+            // Future itself, and whenComplete would then wait on itself forever.
+            _downloadInFlight.remove(translationId);
+          }),
     );
   }
 
@@ -111,7 +115,11 @@ extension AppBibleRepositoryNetwork on AppBibleRepository {
     return _sessionReadInFlight.putIfAbsent(
       translationId,
       () => _doOpenTranslationForSession(translationId)
-          .whenComplete(() => _sessionReadInFlight.remove(translationId)),
+          .whenComplete(() {
+            // Block body on purpose: an arrow function would return the removed
+            // Future itself, and whenComplete would then wait on itself forever.
+            _sessionReadInFlight.remove(translationId);
+          }),
     );
   }
 

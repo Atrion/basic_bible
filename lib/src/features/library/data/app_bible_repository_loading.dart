@@ -44,7 +44,11 @@ extension AppBibleRepositoryLoading on AppBibleRepository {
     return _inFlight.putIfAbsent(
       translationId,
       () => _doLoadLocalBible(translationId)
-          .whenComplete(() => _inFlight.remove(translationId)),
+          .whenComplete(() {
+            // Block body on purpose: an arrow function would return the removed
+            // Future itself, and whenComplete would then wait on itself forever.
+            _inFlight.remove(translationId);
+          }),
     );
   }
 
