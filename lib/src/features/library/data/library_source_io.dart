@@ -1,5 +1,3 @@
-import 'dart:typed_data';
-
 import 'library_source_io_stub.dart'
     if (dart.library.io) 'library_source_io_native.dart'
     if (dart.library.js_interop) 'library_source_io_web.dart'
@@ -21,9 +19,6 @@ Future<void> copyFile(String sourcePath, String destinationPath) =>
 
 Future<void> writeBinaryFile(String destinationPath, List<int> bytes) =>
     impl.writeBinaryFile(destinationPath, bytes);
-
-Future<void> writeGunzippedFile(String destinationPath, Uint8List compressed) =>
-    impl.writeGunzippedFile(destinationPath, compressed);
 
 Future<void> clearDirectoryFiles(String directoryPath, {String? extension}) =>
     impl.clearDirectoryFiles(directoryPath, extension: extension);

@@ -1,6 +1,4 @@
 import 'dart:io';
-import 'dart:isolate';
-import 'dart:typed_data';
 
 const bool usesFileBackedStorage = true;
 const bool supportsDirectFileImport = true;
@@ -32,20 +30,6 @@ Future<void> copyFile(String sourcePath, String destinationPath) async {
 Future<void> writeBinaryFile(String destinationPath, List<int> bytes) async {
   final destinationFile = File(destinationPath);
   await destinationFile.writeAsBytes(bytes, flush: true);
-}
-
-/// Decompresses [compressed] (gzip) and writes the result to
-/// [destinationPath] on a background isolate using the platform's native zlib.
-/// The 50 MB bundled KJV database would otherwise block the UI thread (and use
-/// a lot of memory) for a long time on a phone.
-Future<void> writeGunzippedFile(
-  String destinationPath,
-  Uint8List compressed,
-) {
-  return Isolate.run(() {
-    final bytes = gzip.decode(compressed);
-    File(destinationPath).writeAsBytesSync(bytes, flush: true);
-  });
 }
 
 Future<void> clearDirectoryFiles(

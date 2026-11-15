@@ -1,9 +1,8 @@
-import 'dart:async';
-
 import 'package:basic_bible/l10n/app_localizations.dart';
 import 'package:basic_bible/src/features/annotations/application/view_models/annotation_data_view_models.dart';
 import 'package:basic_bible/src/features/annotations/application/view_models/annotation_selection_view_models.dart';
 import 'package:basic_bible/src/features/annotations/data/user_annotation_repository.dart';
+import 'package:basic_bible/src/features/annotations/models/annotation_verse_ranges.dart';
 import 'package:basic_bible/src/features/annotations/models/user_annotations.dart';
 import 'package:basic_bible/src/features/annotations/presentation/annotation_detail_screen.dart';
 import 'package:basic_bible/src/features/annotations/presentation/linked_verses_section.dart';
@@ -21,6 +20,8 @@ import 'package:basic_bible/src/features/settings/application/view_models/reader
 import 'package:basic_bible/src/models/bible_models.dart';
 import 'package:basic_bible/src/platform/runtime_support.dart';
 import 'package:basic_bible/src/services/font_size_service.dart';
+import 'package:basic_bible/src/features/reader/presentation/reader_view/translation_rights_footer.dart';
+import 'package:basic_bible/src/utils/reference_range_parser.dart';
 import 'package:basic_bible/src/utils/reference_utils.dart';
 import 'package:flutter/gestures.dart'
     show PointerScrollEvent, TapGestureRecognizer;
@@ -212,7 +213,7 @@ class _BibleViewerTabState extends ConsumerState<BibleViewerTab> {
     // bar and picker are populated immediately, regardless of scroll mode.
     // Full books (with verses) are only needed in continuous mode for content
     // rendering and are watched separately.
-    final shellBooksAsync = ref.watch(bibleBooksShellProvider);
+    final shellBooksAsync = ref.watch(readableBibleBooksProvider);
     return _ReaderShellStateSnapshot(
       layoutMode: ref.watch(readerLayoutModeProvider),
       continuousScrolling: continuousScrolling,
@@ -343,16 +344,10 @@ class _BibleViewerTabState extends ConsumerState<BibleViewerTab> {
                     ),
                   )
                 : const _ErrorView(message: 'Chapter not found'),
-            loading: () {
-              logBibleLoad('viewer: books ready, waiting for the chapter text');
-              return const _LoadingView();
-            },
+            loading: () => const _LoadingView(),
             error: (error, stack) => _ErrorView(message: 'Error: $error'),
           ),
-          loading: () {
-            logBibleLoad('viewer: waiting for the book list');
-            return const _LoadingView();
-          },
+          loading: () => const _LoadingView(),
           error: (error, stack) =>
               _ErrorView(message: 'Failed to load Bible: $error'),
         );

@@ -13,9 +13,11 @@ import 'package:basic_bible/src/features/library/data/bible_parser_worker.dart';
 import 'package:basic_bible/src/features/library/data/bible_archive_support.dart';
 import 'package:basic_bible/src/features/library/data/bible_source_parser.dart';
 import 'package:basic_bible/src/features/library/data/bible_translation_catalog.dart';
+import 'package:basic_bible/src/features/library/data/in_flight_requests.dart';
 import 'package:basic_bible/src/features/library/data/remote_translation_catalog_service.dart';
 import 'package:basic_bible/src/models/bible_models.dart';
 import 'package:basic_bible/src/services/app_database.dart';
+import 'package:basic_bible/src/services/translation_database_executor.dart';
 import 'package:basic_bible/src/services/translation_database_manager.dart';
 
 import 'library_source_io.dart';
@@ -26,23 +28,8 @@ export 'bible_import_service.dart' show BibleImportDraft, BibleImportRequest;
 part 'app_bible_repository_loading.dart';
 part 'app_bible_repository_network.dart';
 
-/// Rolling log of Bible-loading steps. The reader shows it on screen if loading
-/// takes unusually long, so a stall can be diagnosed without a computer.
-final ValueNotifier<List<String>> bibleLoadLog = ValueNotifier<List<String>>(
-  const [],
-);
-final Stopwatch _bibleLoadClock = Stopwatch()..start();
-
-void logBibleLoad(String message) {
-  final seconds = (_bibleLoadClock.elapsedMilliseconds / 1000).toStringAsFixed(1);
-  final line = '${seconds}s  $message';
-  debugPrint('[bible-load] $line');
-  // Deferred so listeners are never notified in the middle of a widget build.
-  scheduleMicrotask(() {
-    final next = [...bibleLoadLog.value, line];
-    bibleLoadLog.value = next.length > 30 ? next.sublist(next.length - 30) : next;
-  });
-}
+/// Bytes received so far and the expected total (null when unknown).
+typedef DownloadProgressCallback = void Function(int received, int? total);
 
 class AppBibleRepository {
   AppBibleRepository(this._db, this._dbManager, this._catalogService)
@@ -69,9 +56,9 @@ class AppBibleRepository {
 
   // In-flight guards: shared Futures prevent concurrent parses/downloads of
   // the same translation racing to write the same SQLite file.
-  final Map<String, Future<List<BibleBook>>> _inFlight = {};
-  final Map<String, Future<List<BibleBook>>> _downloadInFlight = {};
-  final Map<String, Future<List<BibleBook>>> _sessionReadInFlight = {};
+  final _inFlight = InFlightRequests<String, List<BibleBook>>();
+  final _downloadInFlight = InFlightRequests<String, List<BibleBook>>();
+  final _sessionReadInFlight = InFlightRequests<String, List<BibleBook>>();
 
   static const Duration _remoteRequestTimeout = Duration(seconds: 20);
   static const int _maxFullTranslationCacheCount = 2;
@@ -402,12 +389,12 @@ class AppBibleRepository {
   }
 
   Future<void> _invalidateCache(String translationId) async {
-    _dbManager.close(translationId);
+    await _dbManager.close(translationId);
     if (!usesFileBackedStorage) {
       final path = await _sqlitePathFor(translationId);
       final db = await _dbManager.open(translationId, path);
       await db.clearBible();
-      _dbManager.close(translationId);
+      await _dbManager.close(translationId);
       return;
     }
     await deleteFileIfExists(await _sqlitePathFor(translationId));
