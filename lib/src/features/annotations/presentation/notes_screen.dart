@@ -1,9 +1,12 @@
 import 'package:basic_bible/src/features/annotations/application/view_models/annotation_data_view_models.dart';
+import 'package:basic_bible/src/features/annotations/models/annotation_verse_ranges.dart';
+import 'package:basic_bible/src/features/annotations/models/note_filters.dart';
 import 'package:basic_bible/src/features/annotations/models/user_annotations.dart';
 import 'package:basic_bible/src/features/annotations/presentation/linked_verses_section.dart';
 import 'package:basic_bible/src/features/annotations/presentation/annotation_theme.dart';
 import 'package:basic_bible/src/features/annotations/presentation/annotation_detail_screen.dart';
 import 'package:basic_bible/src/features/annotations/presentation/note_editor_screen.dart';
+import 'package:basic_bible/src/features/annotations/presentation/notes_date_filter.dart';
 import 'package:basic_bible/src/features/home/application/view_models/home_navigation_view_model.dart';
 import 'package:basic_bible/src/features/reader/application/view_models/bible_library_view_models.dart';
 import 'package:basic_bible/src/features/reader/application/view_models/reader_session_view_models.dart';
@@ -28,9 +31,9 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
   bool _isSearching = false;
   final Set<String> _selectedTags = {};
   final Set<String> _selectedTranslationIds = {};
-  // 'highlightOnly': highlighted with no note text.
-  // 'noteWithHighlight': has note text and also carries a highlight color.
-  final Set<String> _selectedTypes = {};
+  final Set<NoteTypeFilter> _selectedTypes = {};
+  NoteDateField _dateField = NoteDateField.modified;
+  NoteDateRange _dateRange = NoteDateRange.any;
 
   @override
   void dispose() {
@@ -64,6 +67,8 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
       _selectedTags.clear();
       _selectedTranslationIds.clear();
       _selectedTypes.clear();
+      _dateField = NoteDateField.modified;
+      _dateRange = NoteDateRange.any;
     });
   }
 
@@ -177,7 +182,7 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
   @override
   Widget build(BuildContext context) {
     final annotationsAsync = ref.watch(userAnnotationsProvider);
-    final booksAsync = ref.watch(bibleBooksShellProvider);
+    final booksAsync = ref.watch(readableBibleBooksProvider);
 
     return Scaffold(
       appBar: _isSearching ? _buildSearchAppBar() : _buildNormalAppBar(),
@@ -202,9 +207,12 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
               _searchQuery.isNotEmpty ||
               _selectedTags.isNotEmpty ||
               _selectedTranslationIds.isNotEmpty ||
-              _selectedTypes.isNotEmpty;
+              _selectedTypes.isNotEmpty ||
+              _dateRange != NoteDateRange.any ||
+              _dateField != NoteDateField.modified;
+          final now = DateTime.now();
 
-          final filteredAnnotations = annotations.where((annotation) {
+          final filteredAnnotations = sortNotesByDate(annotations.where((annotation) {
             final matchesQuery =
                 _searchQuery.isEmpty ||
                 _annotationMatchesQuery(annotation, books, _searchQuery);
@@ -216,16 +224,19 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
                 _selectedTranslationIds.contains(
                   annotation.primaryVerse.translationId,
                 );
-            final matchesType =
-                _selectedTypes.isEmpty ||
-                (_selectedTypes.contains('highlightOnly') &&
-                    annotation.hasHighlight &&
-                    !annotation.hasNoteText) ||
-                (_selectedTypes.contains('noteWithHighlight') &&
-                    annotation.hasNoteText &&
-                    annotation.hasHighlight);
-            return matchesQuery && matchesTags && matchesTranslation && matchesType;
-          }).toList();
+            final matchesType = matchesNoteTypes(annotation, _selectedTypes);
+            final matchesDate = matchesNoteDateRange(
+              annotation,
+              field: _dateField,
+              range: _dateRange,
+              now: now,
+            );
+            return matchesQuery &&
+                matchesTags &&
+                matchesTranslation &&
+                matchesType &&
+                matchesDate;
+          }).toList(), _dateField);
 
           return Column(
             children: [
@@ -258,6 +269,14 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
                       _selectedTypes.remove(type);
                     }
                   }),
+                  dateFilter: NotesDateFilterDropdown(
+                    field: _dateField,
+                    range: _dateRange,
+                    onFieldChanged: (field) =>
+                        setState(() => _dateField = field),
+                    onRangeChanged: (range) =>
+                        setState(() => _dateRange = range),
+                  ),
                   onClearAll: hasActiveFilters ? _clearAllFilters : null,
                 ),
               ),
@@ -562,6 +581,7 @@ class _NotesFilterBar extends StatelessWidget {
     required this.onTagToggled,
     required this.selectedTypes,
     required this.onTypeToggled,
+    required this.dateFilter,
     this.onClearAll,
   });
 
@@ -571,26 +591,24 @@ class _NotesFilterBar extends StatelessWidget {
   final List<String> tagOptions;
   final Set<String> selectedTags;
   final void Function(String tag, bool selected) onTagToggled;
-  final Set<String> selectedTypes;
-  final void Function(String type, bool selected) onTypeToggled;
+  final Set<NoteTypeFilter> selectedTypes;
+  final void Function(NoteTypeFilter type, bool selected) onTypeToggled;
+  final Widget dateFilter;
   final VoidCallback? onClearAll;
-
-  // 'highlightOnly': highlighted with no note text.
-  // 'noteWithHighlight': has note text and also carries a highlight color.
-  static const _typeOptions = [
-    MapEntry('highlightOnly', 'Highlight only'),
-    MapEntry('noteWithHighlight', 'Note'),
-  ];
 
   @override
   Widget build(BuildContext context) {
     final dropdowns = [
       _MultiSelectDropdown(
         label: 'Type',
-        options: _typeOptions,
-        selectedValues: selectedTypes,
-        onToggled: onTypeToggled,
+        options: [
+          for (final type in NoteTypeFilter.values) MapEntry(type.name, type.label),
+        ],
+        selectedValues: {for (final type in selectedTypes) type.name},
+        onToggled: (name, selected) =>
+            onTypeToggled(NoteTypeFilter.values.byName(name), selected),
       ),
+      dateFilter,
       if (translationOptions.isNotEmpty)
         _MultiSelectDropdown(
           label: 'Translation',
@@ -718,9 +736,13 @@ class _AnnotationListCard extends StatelessWidget {
             annotation.highlightColorValue,
             theme.colorScheme.primary,
           );
-    final referenceLabel =
-        '${displayBookNameForReference(books, annotation.primaryVerse.bookId)} '
-        '${annotation.primaryVerse.chapter}:${annotation.primaryVerse.verse}';
+    // Consecutive verses collapse into one range; the first range is the
+    // heading and only the remaining ranges become chips (#50 / #82).
+    final verseRanges = annotation.verseRanges;
+    final referenceLabel = verseRanges.first.label(
+      displayBookNameForReference(books, verseRanges.first.bookId),
+    );
+    final linkedRanges = verseRanges.skip(1).toList(growable: false);
 
     return InkWell(
       onTap: onViewDetails,
@@ -810,12 +832,13 @@ class _AnnotationListCard extends StatelessWidget {
               ),
             ),
           ),
-          if (annotation.linkedVerses.isNotEmpty) ...[
+          if (linkedRanges.isNotEmpty) ...[
             const SizedBox(height: 12),
-            LinkedVersesSection(
+            LinkedVersesSection.grouped(
               books: books,
-              links: annotation.linkedVerses,
+              ranges: linkedRanges,
               onPreviewLinkedVerse: onPreviewLinkedVerse,
+              maxVisible: kLinkedReferencesPreviewLimit,
             ),
           ],
           if (annotation.labels.isNotEmpty) ...[

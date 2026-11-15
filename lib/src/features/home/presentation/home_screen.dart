@@ -6,6 +6,9 @@ import 'package:basic_bible/src/features/annotations/application/view_models/ann
 import 'package:basic_bible/src/features/library/data/app_bible_repository.dart';
 import 'package:basic_bible/src/features/home/application/view_models/home_navigation_view_model.dart';
 import 'package:basic_bible/src/features/menu/presentation/menu_tab.dart';
+import 'package:basic_bible/src/features/reader/application/view_models/split_view_view_models.dart';
+import 'package:basic_bible/src/features/reader/presentation/split_view/split_reader_layout.dart';
+import 'package:basic_bible/src/features/reader/presentation/search/bible_search_screen.dart';
 import 'package:basic_bible/src/features/reader/application/view_models/bible_library_view_models.dart';
 import 'package:basic_bible/src/features/reader/application/view_models/reader_preferences_view_models.dart';
 import 'package:basic_bible/src/features/reader/application/view_models/reader_session_view_models.dart';
@@ -107,6 +110,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             chapter: visibleReference.chapter,
             verse: currentReference.verse,
           ),
+          // Re-anchoring only: don't re-emphasise the old verse (#22).
+          focusVerse: false,
         );
   }
 
@@ -115,7 +120,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       context: context,
       isScrollControlled: true,
       showDragHandle: true,
-      backgroundColor: Theme.of(context).colorScheme.surface,
+      // No explicit backgroundColor: a value read from Theme.of(context) here
+      // is captured once when the sheet opens, so switching theme from inside
+      // this very sheet left its background on the old theme (#83). Letting
+      // the sheet resolve its colour from the live theme keeps it in sync and
+      // matches every other bottom sheet in the app.
       builder: (sheetContext) {
         return Consumer(
           builder: (context, ref, child) {
@@ -320,13 +329,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   List<_HomeTabDefinition> _buildTabs(AppLocalizations t, bool isSmall) {
     return [
       _HomeTabDefinition(
-        widget: BibleViewerTab(
-          key: _bibleViewerKey,
-          showBottomNav: showBottomNav,
-          hideBottomNav: hideBottomNav,
-          showAppBar: showAppBar,
-          hideAppBar: hideAppBar,
-          isSmallDevice: isSmall,
+        widget: SplitReaderLayout(
+          primary: BibleViewerTab(
+            key: _bibleViewerKey,
+            showBottomNav: showBottomNav,
+            hideBottomNav: hideBottomNav,
+            showAppBar: showAppBar,
+            hideAppBar: hideAppBar,
+            isSmallDevice: isSmall,
+          ),
         ),
         title: t.bible,
         icon: Icons.menu_book,
@@ -350,6 +361,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     // Extra buttons only appear on Bible tab
     final actions = isBible
         ? [
+            Consumer(
+              builder: (context, ref, _) {
+                final split = ref.watch(splitViewEnabledProvider);
+                return IconButton(
+                  isSelected: split,
+                  icon: const Icon(Icons.vertical_split_outlined),
+                  selectedIcon: const Icon(Icons.vertical_split),
+                  tooltip: split ? 'Close split view' : 'Split view',
+                  onPressed: () =>
+                      ref.read(splitViewEnabledProvider.notifier).toggle(),
+                );
+              },
+            ),
             IconButton(
               icon: const Icon(Icons.volume_up),
               onPressed: () {},
@@ -357,7 +381,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             ),
             IconButton(
               icon: const Icon(Icons.search),
-              onPressed: () {},
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => const BibleSearchScreen(),
+                ),
+              ),
               tooltip: 'Search',
             ),
             Consumer(

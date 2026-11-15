@@ -181,31 +181,8 @@ class _TableBlockSection extends StatelessWidget {
   }
 }
 
-class _LoadingView extends StatefulWidget {
+class _LoadingView extends StatelessWidget {
   const _LoadingView();
-
-  @override
-  State<_LoadingView> createState() => _LoadingViewState();
-}
-
-class _LoadingViewState extends State<_LoadingView> {
-  Timer? _slowTimer;
-  bool _showDetails = false;
-
-  @override
-  void initState() {
-    super.initState();
-    // If loading takes unusually long, show what the loader is doing.
-    _slowTimer = Timer(const Duration(seconds: 8), () {
-      if (mounted) setState(() => _showDetails = true);
-    });
-  }
-
-  @override
-  void dispose() {
-    _slowTimer?.cancel();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -213,7 +190,7 @@ class _LoadingViewState extends State<_LoadingView> {
     final shimmerBase = colors.surfaceContainerHigh;
     final shimmerHighlight = colors.surfaceContainerHighest;
 
-    final skeleton = Shimmer.fromColors(
+    return Shimmer.fromColors(
       baseColor: shimmerBase,
       highlightColor: shimmerHighlight,
       child: ListView.builder(
@@ -221,48 +198,6 @@ class _LoadingViewState extends State<_LoadingView> {
         itemCount: 12,
         itemBuilder: (context, index) => _SkeletonVerseRow(index: index),
       ),
-    );
-    if (!_showDetails) return skeleton;
-
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        skeleton,
-        Align(
-          alignment: Alignment.topCenter,
-          child: Card(
-            margin: const EdgeInsets.all(12),
-            child: Padding(
-              padding: const EdgeInsets.all(12),
-              child: ValueListenableBuilder<List<String>>(
-                valueListenable: bibleLoadLog,
-                builder: (context, lines, _) => Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Still loading the Bible... (first launch can take a minute)',
-                      style: Theme.of(context).textTheme.titleSmall,
-                    ),
-                    const SizedBox(height: 6),
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxHeight: 240),
-                      child: SingleChildScrollView(
-                        child: SelectableText(
-                          lines.isEmpty
-                              ? 'No loading steps recorded yet.'
-                              : lines.join('\n'),
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
     );
   }
 }
@@ -340,8 +275,13 @@ class _ErrorView extends StatelessWidget {
             Consumer(
               builder: (context, ref, child) {
                 return ElevatedButton(
+                  // Retry what the reader actually renders from: the book list
+                  // and the current chapter. (This used to invalidate the
+                  // unused full-Bible provider, which retried nothing and
+                  // started a full load instead.)
                   onPressed: () {
-                    ref.invalidate(bibleBooksProvider);
+                    ref.invalidate(bibleBooksShellProvider);
+                    ref.invalidate(currentChapterProvider);
                   },
                   child: const Text('Retry'),
                 );

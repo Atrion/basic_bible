@@ -8,7 +8,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// Resolves the fully hydrated chapter the reader should currently display.
 /// It starts from the faster shell load and only hydrates verses when needed.
 final currentChapterProvider = FutureProvider<BibleChapter?>((ref) async {
-  final booksAsync = ref.watch(bibleBooksShellProvider);
+  final booksAsync = ref.watch(readableBibleBooksProvider);
   final reference = ref.watch(currentReferenceProvider);
   final repository = ref.watch(bibleRepositoryProvider);
   final translation = ref.watch(currentTranslationProvider);
@@ -18,10 +18,6 @@ final currentChapterProvider = FutureProvider<BibleChapter?>((ref) async {
   // before it ever evaluates this provider's value, so the null is never
   // rendered as "Chapter not found". This avoids the transient AsyncError state
   // that a throw would create while the shell is initializing.
-  logBibleLoad(
-    'chapter view: reference=${reference.bookId} ${reference.chapter}, '
-    'books ready=${booksAsync.hasValue}, error=${booksAsync.hasError}',
-  );
   if (booksAsync.hasError) throw booksAsync.error!;
   final books = booksAsync.asData?.value;
   if (books == null || books.isEmpty) {
@@ -37,12 +33,10 @@ final currentChapterProvider = FutureProvider<BibleChapter?>((ref) async {
       : (book.chapters.isNotEmpty ? book.chapters.first : null);
 
   if (chapter == null) {
-    logBibleLoad('chapter view: no chapter found for the reference');
     return null;
   }
 
   if (chapter.verses.isEmpty) {
-    logBibleLoad('chapter view: fetching verses for ${book.id} ${chapter.number}');
     final hydratedChapter = await repository.loadChapterVerses(
       translation,
       book.id,
