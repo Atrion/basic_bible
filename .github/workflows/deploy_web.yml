@@ -68,9 +68,22 @@ jobs:
         working-directory: .
         run: flutter pub get
 
+      # The site is served at https://<your-user>.github.io/<repo-name>/ so the
+      # base href follows the repository name automatically.
+      # Optional: add the GOOGLE_WEB_CLIENT_ID repository secret to enable
+      # Google sign-in (notes sync) in the web app.
       - name: Build web
         working-directory: .
-        run: flutter build web --release --base-href "/basic_bible/"
+        env:
+          GOOGLE_WEB_CLIENT_ID: ${{ secrets.GOOGLE_WEB_CLIENT_ID }}
+        run: |
+          DEFINES=()
+          if [ -n "$GOOGLE_WEB_CLIENT_ID" ]; then
+            DEFINES+=("--dart-define=GOOGLE_WEB_CLIENT_ID=$GOOGLE_WEB_CLIENT_ID")
+          fi
+          flutter build web --release \
+            --base-href "/${{ github.event.repository.name }}/" \
+            "${DEFINES[@]}"
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
