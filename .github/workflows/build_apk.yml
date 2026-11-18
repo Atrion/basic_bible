@@ -1,14 +1,14 @@
 # Added by From Gravel Hill Enterprises (https://fromgravelhill.ca/)
 name: Build Android APK Release
 
-# Runs automatically on every push (including a merged pull request) to main or Stable, and can also be started by hand
+# Runs automatically on every push (including a merged pull request) to Stable, and can also be started by hand
 # (Actions tab > "Build Android APK Release" > Run workflow).
 # Each run publishes a GitHub Release with the next revision number:
 # v0.01, v0.02, v0.03 ... (the number goes up by 0.01 every release).
 # To jump to a full release (e.g. 1.00), run it manually with "version_override".
 on:
   push:
-    branches: [main, Stable] # add any other branch you merge into
+    branches: [Stable] # main/test are kept in sync with Stable by hand; only Stable releases
     paths-ignore: # docs-only pushes don't need a new APK
       - '**.md'
       - 'docs/**'
@@ -197,7 +197,7 @@ jobs:
         run: |
           mkdir -p releases
           cp build/app/outputs/flutter-apk/app-release.apk \
-             "releases/basic_bible-v${{ steps.version.outputs.version }}.apk"
+             "releases/from-gravel-hill-bible-v${{ steps.version.outputs.version }}.apk"
           ls -lh releases
 
       - name: Publish GitHub Release
@@ -225,7 +225,7 @@ jobs:
           [ -n "$CHANGES" ] || CHANGES="- No code changes recorded for this build."
 
           {
-            echo "## Basic Bible App v$VERSION"
+            echo "## From Gravel Hill Bible v$VERSION"
             echo
             if [ -n "$NOTES" ]; then
               echo "$NOTES"
@@ -245,7 +245,7 @@ jobs:
             echo "Commit: \`${GITHUB_SHA::7}\`"
           } > release_notes.md
 
-          gh release create "v$VERSION" "releases/basic_bible-v$VERSION.apk" \
+          gh release create "v$VERSION" "releases/from-gravel-hill-bible-v$VERSION.apk" \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "v$VERSION" \
@@ -254,6 +254,6 @@ jobs:
       - name: Keep a copy as a workflow artifact
         uses: actions/upload-artifact@v4
         with:
-          name: basic_bible-v${{ steps.version.outputs.version }}
+          name: from-gravel-hill-bible-v${{ steps.version.outputs.version }}
           path: releases/*.apk
           if-no-files-found: error

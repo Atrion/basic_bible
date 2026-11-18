@@ -7,7 +7,7 @@
          the permission prompt never appears and notifications are suppressed). -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <application
-        android:label="Basic Bible App"
+        android:label="FGH Bible"
         android:name="${applicationName}"
         android:icon="@mipmap/launcher_icon">
         <activity

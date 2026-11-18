@@ -1,11 +1,11 @@
 {
-    "name": "basic_bible",
-    "short_name": "basic_bible",
+    "name": "From Gravel Hill Bible",
+    "short_name": "FGH Bible",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "From Gravel Hill Bible: a Bible reader with notes and highlights.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

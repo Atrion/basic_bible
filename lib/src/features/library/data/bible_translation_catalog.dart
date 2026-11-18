@@ -58,7 +58,7 @@ final List<BibleTranslation> kBuiltInTranslations = [
     // (see seedTranslationDatabase) instead of parsing the XML on device.
     filePath: 'assets/bible/kjv.sqlite.gz',
     githubUrl:
-        'https://raw.githubusercontent.com/PopGTN/bible-data/main/English/kjv/eng-kjv2006_usfx.xml',
+        'https://raw.githubusercontent.com/Atrion/bible-data/main/English/kjv/eng-kjv2006_usfx.xml',
     format: BibleFormat.sqlite,
     sourceType: BibleSourceType.asset,
     bundledByDefault: true,
@@ -68,7 +68,7 @@ final List<BibleTranslation> kBuiltInTranslations = [
       BibleTranslationArtifact(
         format: kIsWeb ? BibleFormat.usfx : BibleFormat.sqlite,
         downloadUrl:
-            'https://raw.githubusercontent.com/PopGTN/bible-data/main/English/kjv/eng-kjv2006_usfx.xml',
+            'https://raw.githubusercontent.com/Atrion/bible-data/main/English/kjv/eng-kjv2006_usfx.xml',
         fileName: kIsWeb ? 'eng-kjv2006_usfx.xml' : 'kjv.sqlite',
         isPreferred: true,
       ),
@@ -82,7 +82,7 @@ final List<BibleTranslation> kBuiltInTranslations = [
     description: 'American Standard Version (1901)',
     isLocal: false,
     githubUrl:
-        'https://raw.githubusercontent.com/PopGTN/bible-data/main/English/asv/asv_osis.xml',
+        'https://raw.githubusercontent.com/Atrion/bible-data/main/English/asv/asv_osis.xml',
     format: BibleFormat.osis,
     sourceType: BibleSourceType.download,
     displayOrder: 20,
@@ -91,7 +91,7 @@ final List<BibleTranslation> kBuiltInTranslations = [
       BibleTranslationArtifact(
         format: BibleFormat.osis,
         downloadUrl:
-            'https://raw.githubusercontent.com/PopGTN/bible-data/main/English/asv/asv_osis.xml',
+            'https://raw.githubusercontent.com/Atrion/bible-data/main/English/asv/asv_osis.xml',
         fileName: 'asv_osis.xml',
         isPreferred: true,
       ),
@@ -105,7 +105,7 @@ final List<BibleTranslation> kBuiltInTranslations = [
     description: 'Modern English public domain Bible',
     isLocal: false,
     githubUrl:
-        'https://raw.githubusercontent.com/PopGTN/bible-data/main/English/web/eng-web.usfx.xml',
+        'https://raw.githubusercontent.com/Atrion/bible-data/main/English/web/eng-web.usfx.xml',
     format: BibleFormat.usfx,
     sourceType: BibleSourceType.download,
     displayOrder: 30,
@@ -114,7 +114,7 @@ final List<BibleTranslation> kBuiltInTranslations = [
       BibleTranslationArtifact(
         format: BibleFormat.usfx,
         downloadUrl:
-            'https://raw.githubusercontent.com/PopGTN/bible-data/main/English/web/eng-web.usfx.xml',
+            'https://raw.githubusercontent.com/Atrion/bible-data/main/English/web/eng-web.usfx.xml',
         fileName: 'eng-web.usfx.xml',
         isPreferred: true,
       ),
