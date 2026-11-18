@@ -20,7 +20,7 @@ void main() {
     await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Basic Bible'), findsWidgets);
+    expect(find.text('From Gravel Hill Bible'), findsWidgets);
     expect(find.textContaining('Apache License 2.0'), findsOneWidget);
 
     await tester.tap(find.text('View licenses'));

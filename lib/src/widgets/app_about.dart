@@ -1,9 +1,10 @@
 import 'package:basic_bible/l10n/app_localizations.dart';
 import 'package:flutter/material.dart';
 
-const String _appName = 'Basic Bible';
+const String _appName = 'From Gravel Hill Bible';
 const String _legalese =
     'Free and open source under the Apache License 2.0.\n'
+    'Based on Basic Bible by PopGTN (https://github.com/PopGTN/basic_bible).\n'
     'Bible texts are public domain; see the notice at the end of each '
     'chapter.';
 

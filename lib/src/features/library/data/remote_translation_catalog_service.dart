@@ -40,7 +40,7 @@ class RemoteTranslationCatalogService {
   static const String defaultCatalogUrl = String.fromEnvironment(
     'BIBLE_DATA_CATALOG_URL',
     defaultValue:
-        'https://raw.githubusercontent.com/PopGTN/bible-data/main/catalog/production/bibles.json',
+        'https://raw.githubusercontent.com/Atrion/bible-data/main/catalog/production/bibles.json',
   );
 
   /// Ordered list of (url, parser) pairs tried in sequence on primary failure.
@@ -51,12 +51,12 @@ class RemoteTranslationCatalogService {
     (url: defaultCatalogUrl, parser: _parseTranslationsEnvelope),
     (
       url:
-          'https://raw.githubusercontent.com/PopGTN/bible-data/main/catalog/translations.json',
+          'https://raw.githubusercontent.com/Atrion/bible-data/main/catalog/translations.json',
       parser: _parseTranslationsEnvelope,
     ),
     (
       url:
-          'https://raw.githubusercontent.com/PopGTN/bible-data/main/ebible_list.json',
+          'https://raw.githubusercontent.com/Atrion/bible-data/main/ebible_list.json',
       parser: _parseEbibleList,
     ),
   ];

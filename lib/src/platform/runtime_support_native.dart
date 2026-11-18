@@ -22,7 +22,7 @@ const double _minWindowHeight = 854;
 void setupPlatformWindow() {
   if (!isDesktopRuntime) return;
 
-  setWindowTitle('The Basic Bible App');
+  setWindowTitle('From Gravel Hill Bible');
   setWindowMinSize(const Size(_minWindowWidth, _minWindowHeight));
 
   getCurrentScreen().then((screen) {

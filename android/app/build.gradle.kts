@@ -32,7 +32,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "ca.joshuamc.basic_bible"
+        applicationId = "ca.fromgravelhill.bible"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion

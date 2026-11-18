@@ -71,9 +71,9 @@ class LocalDownloadNotifications implements DownloadNotifications {
           ),
           linux: LinuxInitializationSettings(defaultActionName: 'Open'),
           windows: WindowsInitializationSettings(
-            appName: 'Basic Bible',
-            appUserModelId: 'ca.joshuamc.basic_bible',
-            guid: '6f1d0a35-6b1f-4d43-9f3e-2a7c0b5d9e41',
+            appName: 'From Gravel Hill Bible',
+            appUserModelId: 'ca.fromgravelhill.bible',
+            guid: '28297d8f-40cc-4c56-8b45-b6260052bc57',
           ),
         ),
       );

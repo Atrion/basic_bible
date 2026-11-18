@@ -167,7 +167,7 @@ class _MyAppState extends ConsumerState<MyApp> {
     final localelang = ref.watch(languageProvider);
 
     return MaterialApp.router(
-      title: 'The Basic Bible App',
+      title: 'From Gravel Hill Bible',
       debugShowCheckedModeBanner: false,
       routerConfig: _router,
       //Languages
