@@ -6,6 +6,7 @@ import 'package:basic_bible/src/platform/runtime_support.dart';
 import 'package:basic_bible/src/features/library/data/remote_translation_catalog_service.dart';
 import 'package:basic_bible/src/services/translation_database_manager.dart';
 import 'package:basic_bible/src/widgets/app_back_button.dart';
+import 'package:basic_bible/src/widgets/system_inset_padding.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -172,7 +173,7 @@ class _AdvancedSettingsScreenState
         title: const Text('Advanced'),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16).withSystemBottom(context),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

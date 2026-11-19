@@ -190,7 +190,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   ) {
     switch (action) {
       case _BibleViewerMenuAction.relatedContent:
-        context.go('/coming-soon/related-content');
+        context.push('/coming-soon/related-content');
       case _BibleViewerMenuAction.fontsAndSettings:
         _showBibleViewerSettings(context, ref);
     }
@@ -236,7 +236,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             ? navTheme.colorScheme.surfaceContainer
             : navTheme.canvasColor);
 
-    return Scaffold(
+    return PopScope(
+      // Back on any other tab (e.g. Menu) returns to the Bible tab first.
+      // Only from the Bible tab does Back leave the app.
+      canPop: _currentIndex == bibleTabIndex,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        setState(() => _currentIndex = bibleTabIndex);
+        ref.read(homeTabIndexProvider.notifier).state = bibleTabIndex;
+      },
+      child: Scaffold(
       // Top bar changes depending on device size + tab
       appBar: _buildAppBar(currentTab, isWide, isBibleTab),
 
@@ -323,6 +332,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                 ),
               ],
             ),
+      ),
     );
   }
 

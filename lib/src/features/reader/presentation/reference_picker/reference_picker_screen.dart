@@ -3,6 +3,7 @@ import 'package:basic_bible/src/features/reader/application/view_models/bible_li
 import 'package:basic_bible/src/features/reader/application/view_models/reader_session_view_models.dart';
 import 'package:basic_bible/src/models/bible_models.dart';
 import 'package:basic_bible/src/utils/reference_utils.dart';
+import 'package:basic_bible/src/widgets/system_inset_padding.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -423,7 +424,7 @@ class _ReferencePickerScreenState extends ConsumerState<ReferencePickerScreen> {
                           0,
                           isTablet ? 20 : 16,
                           20,
-                        ),
+                        ).withSystemBottom(context),
                         itemCount: visibleBooks.length,
                         itemBuilder: (context, index) {
                           final book = visibleBooks[index];

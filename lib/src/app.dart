@@ -15,7 +15,6 @@ import 'features/library/presentation/versions_screen.dart';
 import 'features/annotations/presentation/notes_screen.dart';
 import 'features/settings/presentation/settings_screen.dart';
 import 'features/settings/presentation/advanced_settings_screen.dart';
-import 'features/settings/presentation/language_screen.dart';
 import 'views/placeholder/coming_soon_screen.dart';
 
 // Providers
@@ -112,10 +111,6 @@ class _MyAppState extends ConsumerState<MyApp> {
           path: '/home',
           builder: (context, state) => const HomeScreen(),
           routes: [
-            GoRoute(
-              path: 'language',
-              builder: (context, state) => const LanguageScreen(),
-            ),
             GoRoute(
               path: 'translations',
               builder: (context, state) => const VersionsScreen(),
