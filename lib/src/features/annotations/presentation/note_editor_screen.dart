@@ -7,6 +7,7 @@ import 'package:basic_bible/src/features/reader/application/view_models/bible_li
 import 'package:basic_bible/src/features/reader/presentation/reference_picker/reference_picker_screen.dart';
 import 'package:basic_bible/src/models/bible_models.dart';
 import 'package:basic_bible/src/utils/reference_utils.dart';
+import 'package:basic_bible/src/widgets/system_inset_padding.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -222,7 +223,12 @@ class _NoteEditorScreenState extends ConsumerState<NoteEditorScreen> {
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+        padding: const EdgeInsets.fromLTRB(
+          16,
+          12,
+          16,
+          24,
+        ).withSystemBottom(context),
         children: [
           TextField(
             controller: _noteController,

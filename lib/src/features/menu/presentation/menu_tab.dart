@@ -54,14 +54,14 @@ class MenuTab extends ConsumerWidget {
         ListTile(
           leading: const Icon(Icons.list_alt),
           title: Text("Prayer List"),
-          onTap: () => context.go('/coming-soon/prayer'),
+          onTap: () => context.push('/coming-soon/prayer'),
         ),
 
         // Verses of the Day
         ListTile(
           leading: const Icon(Icons.auto_stories),
           title: Text("Verses of the Day"),
-          onTap: () => context.go('/coming-soon/verses'),
+          onTap: () => context.push('/coming-soon/verses'),
         ),
 
         const Divider(),
@@ -77,13 +77,13 @@ class MenuTab extends ConsumerWidget {
         // ListTile(
         //   leading: const Icon(Icons.help_outline),
         //   title: Text("Donate"),
-        //   onTap: () => context.go('/coming-soon/donate'),
+        //   onTap: () => context.push('/coming-soon/donate'),
         // ),
         // Help
         ListTile(
           leading: const Icon(Icons.help_outline),
           title: Text("Help"),
-          onTap: () => context.go('/coming-soon/help'),
+          onTap: () => context.push('/coming-soon/help'),
         ),
 
         // GitHub Repo
@@ -94,12 +94,6 @@ class MenuTab extends ConsumerWidget {
         ),
 
         const Divider(),
-        // Language
-        ListTile(
-          leading: const Icon(Icons.language),
-          title: Text("Language"),
-          onTap: () => context.go('/home/language'),
-        ),
         // Settings
         ListTile(
           leading: const Icon(Icons.settings),

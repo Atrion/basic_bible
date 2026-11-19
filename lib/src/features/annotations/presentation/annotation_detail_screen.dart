@@ -4,6 +4,7 @@ import 'package:basic_bible/src/features/annotations/presentation/annotation_the
 import 'package:basic_bible/src/features/annotations/presentation/linked_verses_section.dart';
 import 'package:basic_bible/src/models/bible_models.dart';
 import 'package:basic_bible/src/utils/reference_utils.dart';
+import 'package:basic_bible/src/widgets/system_inset_padding.dart';
 import 'package:flutter/material.dart';
 
 class AnnotationDetailScreen extends StatelessWidget {
@@ -59,7 +60,7 @@ class AnnotationDetailScreen extends StatelessWidget {
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16).withSystemBottom(context),
         children: [
           Container(
             padding: const EdgeInsets.all(16),

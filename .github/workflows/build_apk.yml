@@ -164,7 +164,20 @@ jobs:
         run: |
           set -euo pipefail
           if [ -n "$KEYSTORE_B64" ]; then
-            echo "$KEYSTORE_B64" | base64 -d > android/release.jks
+            # Tolerate things that sneak in when pasting a secret: spaces, CR/LF
+            # line breaks, quotes, or PEM-style "-----BEGIN" header lines.
+            printf '%s' "$KEYSTORE_B64" | sed '/^-----/d' | tr -d '[:space:]"\047' > "$RUNNER_TEMP/keystore.b64"
+            if ! base64 -d "$RUNNER_TEMP/keystore.b64" > android/release.jks 2>/dev/null \
+               || [ ! -s android/release.jks ]; then
+              echo "::error::ANDROID_KEYSTORE_BASE64 is not valid base64. Re-create the secret from the .jks file (see the setup notes): it must be one long line starting with MII or /u3+ and containing nothing else."
+              exit 1
+            fi
+            echo "Decoded keystore: $(wc -c < android/release.jks) bytes"
+            if ! keytool -list -keystore android/release.jks \
+                 -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" >/dev/null 2>&1; then
+              echo "::error::The keystore decoded fine but could not be opened with ANDROID_KEYSTORE_PASSWORD and ANDROID_KEY_ALIAS. Check the password and that the alias is exactly the one used when the keystore was created."
+              exit 1
+            fi
             {
               echo "storeFile=release.jks"
               echo "storePassword=$KEYSTORE_PASSWORD"

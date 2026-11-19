@@ -12,6 +12,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:basic_bible/src/features/settings/application/view_models/language_view_model.dart';
 import 'package:basic_bible/src/features/settings/application/view_models/theme_view_model.dart';
+import 'package:basic_bible/src/widgets/system_inset_padding.dart';
 import 'package:go_router/go_router.dart';
 
 class SettingsScreen extends ConsumerWidget {
@@ -37,11 +38,13 @@ class SettingsScreen extends ConsumerWidget {
     final showSourceDetails = ref.watch(showSourceDetailsProvider);
     final colors = Theme.of(context).colorScheme;
 
+    // One entry per language in lib/l10n (add new languages here too).
     final languages = {
       'en': 'English',
-      'es': 'Spanish',
-      'fr': 'French',
-      'de': 'German',
+      'es': 'Spanish (Español)',
+      'fr': 'French (Français)',
+      'de': 'German (Deutsch)',
+      'zh': 'Chinese (中文)',
     };
 
     return Scaffold(
@@ -50,7 +53,7 @@ class SettingsScreen extends ConsumerWidget {
         title: Text(AppLocalizations.of(context)!.settings),
       ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(16.0).withSystemBottom(context),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [

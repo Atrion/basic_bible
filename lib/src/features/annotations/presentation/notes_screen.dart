@@ -14,6 +14,7 @@ import 'package:basic_bible/src/features/reader/presentation/reference_picker/re
 import 'package:basic_bible/src/models/bible_models.dart';
 import 'package:basic_bible/src/utils/reference_utils.dart';
 import 'package:basic_bible/src/widgets/horizontal_mouse_scroll_list.dart';
+import 'package:basic_bible/src/widgets/system_inset_padding.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -302,7 +303,9 @@ class _NotesScreenState extends ConsumerState<NotesScreen> {
                         ),
                       )
                     : ListView.separated(
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.all(
+                          16,
+                        ).withSystemBottom(context),
                         itemCount: filteredAnnotations.length,
                         separatorBuilder: (_, index) =>
                             const SizedBox(height: 12),
