@@ -13,7 +13,6 @@ import 'features/home/presentation/home_screen.dart';
 import 'features/reader/models/reader_deep_link.dart';
 import 'features/library/presentation/versions_screen.dart';
 import 'features/annotations/presentation/notes_screen.dart';
-import 'features/settings/presentation/settings_screen.dart';
 import 'features/settings/presentation/advanced_settings_screen.dart';
 import 'views/placeholder/coming_soon_screen.dart';
 
@@ -115,15 +114,11 @@ class _MyAppState extends ConsumerState<MyApp> {
               path: 'translations',
               builder: (context, state) => const VersionsScreen(),
             ),
+            // Settings itself is a tab of HomeScreen (bottom navigation);
+            // only its Advanced sub-page is a separate route.
             GoRoute(
-              path: 'settings',
-              builder: (context, state) => SettingsScreen(),
-              routes: [
-                GoRoute(
-                  path: 'advanced',
-                  builder: (context, state) => const AdvancedSettingsScreen(),
-                ),
-              ],
+              path: 'advanced-settings',
+              builder: (context, state) => const AdvancedSettingsScreen(),
             ),
             GoRoute(
               path: 'notes',

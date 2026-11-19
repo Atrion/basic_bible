@@ -5,6 +5,7 @@ import 'package:basic_bible/l10n/app_localizations.dart';
 import 'package:basic_bible/src/features/annotations/application/view_models/annotation_preferences_view_models.dart';
 import 'package:basic_bible/src/features/library/data/app_bible_repository.dart';
 import 'package:basic_bible/src/features/home/application/view_models/home_navigation_view_model.dart';
+import 'package:basic_bible/src/features/settings/presentation/settings_screen.dart';
 import 'package:basic_bible/src/features/menu/presentation/menu_tab.dart';
 import 'package:basic_bible/src/features/reader/application/view_models/split_view_view_models.dart';
 import 'package:basic_bible/src/features/reader/presentation/split_view/split_reader_layout.dart';
@@ -174,7 +175,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
               },
               onOpenAllSettings: () {
                 Navigator.of(sheetContext).pop();
-                context.go('/home/settings');
+                setState(() => _currentIndex = settingsTabIndex);
+                ref.read(homeTabIndexProvider.notifier).state =
+                    settingsTabIndex;
               },
             );
           },
@@ -356,6 +359,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         widget: const MenuTab(),
         title: t.menu,
         icon: Icons.menu,
+      ),
+      _HomeTabDefinition(
+        widget: const SettingsTab(),
+        title: t.settings,
+        icon: Icons.settings,
       ),
     ];
   }
