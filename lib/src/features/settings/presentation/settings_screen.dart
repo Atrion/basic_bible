@@ -4,7 +4,6 @@ import 'package:basic_bible/src/features/reader/application/view_models/reader_p
 import 'package:basic_bible/src/features/settings/application/view_models/reader_display_preferences_view_models.dart';
 import 'package:basic_bible/src/features/sync/presentation/notes_backup_tiles.dart';
 import 'package:basic_bible/src/features/sync/presentation/sync_settings_section.dart';
-import 'package:basic_bible/src/widgets/app_back_button.dart';
 import 'package:basic_bible/src/widgets/horizontal_mouse_scroll_list.dart';
 import 'package:basic_bible/src/widgets/theme_preview_card.dart';
 import 'package:basic_bible/src/widgets/app_about.dart';
@@ -12,11 +11,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:basic_bible/src/features/settings/application/view_models/language_view_model.dart';
 import 'package:basic_bible/src/features/settings/application/view_models/theme_view_model.dart';
-import 'package:basic_bible/src/widgets/system_inset_padding.dart';
 import 'package:go_router/go_router.dart';
 
-class SettingsScreen extends ConsumerWidget {
-  const SettingsScreen({super.key});
+/// Settings as a tab of the home shell (bottom navigation). It has no
+/// Scaffold/AppBar of its own: HomeScreen provides them.
+class SettingsTab extends ConsumerWidget {
+  const SettingsTab({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -47,13 +47,13 @@ class SettingsScreen extends ConsumerWidget {
       'zh': 'Chinese (中文)',
     };
 
-    return Scaffold(
-      appBar: AppBar(
-        leading: const AppBackButton(),
-        title: Text(AppLocalizations.of(context)!.settings),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0).withSystemBottom(context),
+    // Scaffold removes the bottom inset from the body when the bottom
+    // navigation bar is showing, and keeps it on wide layouts (no bottom
+    // bar), so this is correct in both cases.
+    final bottomInset = MediaQuery.paddingOf(context).bottom;
+
+    return SingleChildScrollView(
+        padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + bottomInset),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -257,7 +257,7 @@ class SettingsScreen extends ConsumerWidget {
                 'Developer tools — export translation databases',
               ),
               trailing: const Icon(Icons.chevron_right),
-              onTap: () => context.push('/home/settings/advanced'),
+              onTap: () => context.push('/home/advanced-settings'),
             ),
             ListTile(
               contentPadding: EdgeInsets.zero,
@@ -269,7 +269,6 @@ class SettingsScreen extends ConsumerWidget {
             ),
           ],
         ),
-      ),
     );
   }
 }

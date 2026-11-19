@@ -42,7 +42,7 @@ void main() {
         '/',
         '/home',
         '/home/notes',
-        '/home/settings/advanced',
+        '/home/advanced-settings',
         '/login',
         '/coming-soon/audio',
         '/bible/Xyz/1',

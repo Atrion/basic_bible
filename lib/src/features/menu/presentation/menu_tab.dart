@@ -92,14 +92,6 @@ class MenuTab extends ConsumerWidget {
           title: const Text("GitHub Repository"),
           onTap: () => _openLink("https://github.com/PopGTN/basic_bible"),
         ),
-
-        const Divider(),
-        // Settings
-        ListTile(
-          leading: const Icon(Icons.settings),
-          title: Text(t.settings),
-          onTap: () => context.go('/home/settings'),
-        ),
       ],
     );
   }
