@@ -64,7 +64,7 @@ abstract class _ReaderDisplayPreferenceNotifier extends StateNotifier<bool> {
 
 class BoldDivineNameNotifier extends _ReaderDisplayPreferenceNotifier {
   BoldDivineNameNotifier(SharedPreferences prefs)
-    : super(prefs, 'reader_bold_divine_name', false);
+    : super(prefs, 'reader_bold_divine_name', true);
 }
 
 class UnderlineProperNamesNotifier extends _ReaderDisplayPreferenceNotifier {

@@ -6,7 +6,7 @@
   "settings": "Paramètres",
   "logout": "Se déconnecter",
   "goToOther": "Aller à l'autre page",
-  "aboutDescription": "Cette application Bible est un projet gratuit de PopGTN. C'est un projet pratique pour apprendre Flutter et Dart. L'application permet de lire la Bible, de prendre des notes, de bénéficier du support TTS, et plus encore. Elle est inspirée d'applications comme YouVersion Bible mais avec des fonctionnalités supplémentaires et une interface améliorée.",
+  "aboutDescription": "From Gravel Hill Bible est un lecteur de la Bible gratuit avec notes, surlignages, lecture à voix haute, affichage en écran partagé et synchronisation facultative avec Google Drive. Il est conçu et maintenu par From Gravel Hill Enterprises (https://fromgravelhill.ca/) et repose sur l’application open source Basic Bible de PopGTN.",
   "language": "Langue",
   "theme": "Thème",
   "login": "Connexion",

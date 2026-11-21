@@ -1,12 +1,15 @@
 import 'package:basic_bible/l10n/app_localizations.dart';
+import 'package:basic_bible/src/app_info.dart';
+import 'package:basic_bible/src/widgets/open_external_link.dart';
 import 'package:flutter/material.dart';
 
 const String _appName = 'From Gravel Hill Bible';
 const String _legalese =
     'Free and open source under the Apache License 2.0.\n'
-    'Based on Basic Bible by PopGTN (https://github.com/PopGTN/basic_bible).\n'
-    'Bible texts are public domain; see the notice at the end of each '
-    'chapter.';
+    'Built and maintained by From Gravel Hill Enterprises.\n'
+    'Based on Basic Bible by PopGTN.\n'
+    'The license and rights notice for each Bible translation is shown with '
+    'its text.';
 
 Widget _appIcon() => ClipRRect(
   borderRadius: BorderRadius.circular(12),
@@ -19,11 +22,33 @@ void showAppAbout(BuildContext context) {
   showAboutDialog(
     context: context,
     applicationName: _appName,
+    applicationVersion: appVersion.isEmpty ? null : appVersion,
     applicationIcon: _appIcon(),
     applicationLegalese: _legalese,
     children: [
       const SizedBox(height: 16),
       Text(t.aboutDescription),
+      const SizedBox(height: 8),
+      Wrap(
+        spacing: 4,
+        children: [
+          TextButton.icon(
+            onPressed: () => openExternalLink(publisherUrl),
+            icon: const Icon(Icons.public, size: 18),
+            label: const Text('fromgravelhill.ca'),
+          ),
+          TextButton.icon(
+            onPressed: () => openExternalLink(appRepositoryUrl),
+            icon: const Icon(Icons.code, size: 18),
+            label: const Text('Source code'),
+          ),
+          TextButton.icon(
+            onPressed: () => openExternalLink(originalProjectUrl),
+            icon: const Icon(Icons.favorite_border, size: 18),
+            label: const Text('Original project'),
+          ),
+        ],
+      ),
     ],
   );
 }
@@ -34,6 +59,7 @@ void showAppLicenses(BuildContext context) {
   showLicensePage(
     context: context,
     applicationName: _appName,
+    applicationVersion: appVersion.isEmpty ? null : appVersion,
     applicationIcon: Padding(
       padding: const EdgeInsets.all(8),
       child: _appIcon(),
