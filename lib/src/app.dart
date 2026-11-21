@@ -13,6 +13,7 @@ import 'features/home/presentation/home_screen.dart';
 import 'features/reader/models/reader_deep_link.dart';
 import 'features/library/presentation/versions_screen.dart';
 import 'features/annotations/presentation/notes_screen.dart';
+import 'features/prayer/presentation/prayer_list_screen.dart';
 import 'features/settings/presentation/advanced_settings_screen.dart';
 import 'views/placeholder/coming_soon_screen.dart';
 
@@ -113,6 +114,10 @@ class _MyAppState extends ConsumerState<MyApp> {
             GoRoute(
               path: 'translations',
               builder: (context, state) => const VersionsScreen(),
+            ),
+            GoRoute(
+              path: 'prayer-list',
+              builder: (context, state) => const PrayerListScreen(),
             ),
             // Settings itself is a tab of HomeScreen (bottom navigation);
             // only its Advanced sub-page is a separate route.

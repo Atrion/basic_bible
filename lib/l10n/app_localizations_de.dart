@@ -27,7 +27,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get goToOther => 'Zur anderen Seite gehen';
 
   @override
-  String get aboutDescription => 'Diese Bibel-App ist ein kostenloses Projekt von PopGTN. Es ist ein Übungsprojekt zum Lernen von Flutter und Dart. Die App ermöglicht das Lesen der Bibel, das Erstellen von Notizen, TTS-Unterstützung und mehr. Sie ist inspiriert von Apps wie YouVersion Bible, jedoch mit zusätzlichen Funktionen und einer verbesserten Benutzeroberfläche.';
+  String get aboutDescription => 'From Gravel Hill Bible ist ein kostenloser Bibelleser mit Notizen, Markierungen, Vorlesefunktion, geteilter Ansicht und optionaler Google-Drive-Synchronisierung. Die App wird von From Gravel Hill Enterprises (https://fromgravelhill.ca/) entwickelt und gepflegt und basiert auf der Open-Source-App Basic Bible von PopGTN.';
 
   @override
   String get language => 'Sprache';
@@ -51,7 +51,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get german => 'Deutsch';
 
   @override
-  String get menu => 'Menu';
+  String get menu => 'Extras';
 
   @override
   String get readerFootnotesTooltip => 'Fußnoten und Verweise anzeigen';

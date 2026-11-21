@@ -356,14 +356,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         icon: Icons.menu_book,
       ),
       _HomeTabDefinition(
-        widget: const MenuTab(),
-        title: t.menu,
-        icon: Icons.menu,
-      ),
-      _HomeTabDefinition(
         widget: const SettingsTab(),
         title: t.settings,
         icon: Icons.settings,
+      ),
+      _HomeTabDefinition(
+        widget: const MenuTab(),
+        title: t.menu, // shown as "Extras"
+        icon: Icons.apps,
       ),
     ];
   }

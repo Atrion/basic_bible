@@ -27,7 +27,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get goToOther => '前往其他页面';
 
   @override
-  String get aboutDescription => '这个圣经应用是 PopGTN 的免费项目。它是学习 Flutter 和 Dart 的练习项目。该应用允许阅读圣经、做笔记、支持 TTS 等功能。它的灵感来自 YouVersion 圣经等应用，但具有额外功能和改进的界面。';
+  String get aboutDescription => 'From Gravel Hill Bible 是一款免费的圣经阅读应用，支持笔记、标注、语音朗读、分屏阅读，以及可选的 Google Drive 同步。本应用由 From Gravel Hill Enterprises（https://fromgravelhill.ca/）开发和维护，基于 PopGTN 的开源应用 Basic Bible。';
 
   @override
   String get language => '语言';
@@ -51,7 +51,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get german => 'German';
 
   @override
-  String get menu => 'Menu';
+  String get menu => 'Extras';
 
   @override
   String get readerFootnotesTooltip => '查看脚注和参考资料';

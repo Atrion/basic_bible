@@ -198,6 +198,7 @@ jobs:
           GOOGLE_WEB_CLIENT_ID: ${{ secrets.GOOGLE_WEB_CLIENT_ID }}
         run: |
           DEFINES=()
+          DEFINES+=("--dart-define=APP_VERSION=${{ steps.version.outputs.version }}")
           if [ -n "$GOOGLE_WEB_CLIENT_ID" ]; then
             DEFINES+=("--dart-define=GOOGLE_WEB_CLIENT_ID=$GOOGLE_WEB_CLIENT_ID")
           fi

@@ -6,7 +6,9 @@ import 'package:basic_bible/src/features/sync/presentation/notes_backup_tiles.da
 import 'package:basic_bible/src/features/sync/presentation/sync_settings_section.dart';
 import 'package:basic_bible/src/widgets/horizontal_mouse_scroll_list.dart';
 import 'package:basic_bible/src/widgets/theme_preview_card.dart';
+import 'package:basic_bible/src/app_info.dart';
 import 'package:basic_bible/src/widgets/app_about.dart';
+import 'package:basic_bible/src/widgets/open_external_link.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:basic_bible/src/features/settings/application/view_models/language_view_model.dart';
@@ -102,6 +104,32 @@ class SettingsTab extends ConsumerWidget {
                   },
                 );
               }).toList(),
+            ),
+            const SizedBox(height: 20),
+
+            // About & Help Section
+            Text(
+              'About & Help',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 4),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.info_outline),
+              title: Text(AppLocalizations.of(context)!.about),
+              onTap: () => showAppAbout(context),
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.help_outline),
+              title: const Text('Help'),
+              onTap: () => context.push('/coming-soon/help'),
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.code),
+              title: const Text('GitHub Repository'),
+              onTap: () => openExternalLink(appRepositoryUrl),
             ),
             const SizedBox(height: 20),
 

@@ -27,7 +27,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get goToOther => 'Go to Other Page';
 
   @override
-  String get aboutDescription => 'This Bible app is a free project by PopGTN. It is a practice project for learning Flutter & Dart. The app allows reading the Bible, taking notes, TTS support, and more. It is inspired by apps like YouVersion Bible but with extra features and improved UI.';
+  String get aboutDescription => 'From Gravel Hill Bible is a free Bible reader with notes, highlights, text-to-speech, split view and optional Google Drive sync. It is built and maintained by From Gravel Hill Enterprises (https://fromgravelhill.ca/) and is based on the open-source Basic Bible app by PopGTN.';
 
   @override
   String get language => 'Language';
@@ -51,7 +51,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get german => 'German';
 
   @override
-  String get menu => 'Menu';
+  String get menu => 'Extras';
 
   @override
   String get readerFootnotesTooltip => 'View footnotes and references';

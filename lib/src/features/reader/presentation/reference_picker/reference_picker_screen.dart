@@ -26,9 +26,17 @@ class ReferencePickerScreen extends ConsumerStatefulWidget {
 }
 
 class _ReferencePickerScreenState extends ConsumerState<ReferencePickerScreen> {
+  // The book whose chapters are open on the phone layout. Starts empty so the
+  // list opens fully collapsed; the book the reader came from is only
+  // highlighted (see _currentBookId).
   late String expandedBookId;
   late int selectedChapter;
   int? selectedVerse;
+  // With "Enable Verse Selector" on, tapping a chapter swaps the chapter grid
+  // for that chapter's verse grid. Back returns to the chapter grid.
+  bool _verseStep = false;
+  late final String _currentBookId;
+  late final int _currentChapter;
   final TextEditingController _searchController = TextEditingController();
   List<BibleBook> filteredBooks = [];
   bool _alphabeticalOrder = false;
@@ -40,11 +48,19 @@ class _ReferencePickerScreenState extends ConsumerState<ReferencePickerScreen> {
   final GlobalKey _expandedBookKey = GlobalKey();
   final GlobalKey _selectedChapterKey = GlobalKey();
   final GlobalKey _selectedVerseKey = GlobalKey();
+  final GlobalKey _currentBookKey = GlobalKey();
+  final ScrollController _bookListController = ScrollController();
+  bool _didInitialScroll = false;
+  // Rough height of one collapsed book row, used to jump near the current
+  // book before the lazily built list can scroll to it exactly.
+  double _estimatedRowExtent = 70;
 
   @override
   void initState() {
     super.initState();
-    expandedBookId = widget.currentReference.bookId;
+    _currentBookId = widget.currentReference.bookId;
+    _currentChapter = widget.currentReference.chapter;
+    expandedBookId = '';
     selectedChapter = widget.currentReference.chapter;
     selectedVerse = widget.currentReference.verse;
     filteredBooks = widget.books;
@@ -66,6 +82,11 @@ class _ReferencePickerScreenState extends ConsumerState<ReferencePickerScreen> {
       final bookContext = _expandedBookKey.currentContext;
       if (bookContext != null) {
         Scrollable.ensureVisible(bookContext, alignment: 0.3);
+      } else if (!_didInitialScroll) {
+        // Nothing is expanded: bring the highlighted current book into view
+        // once, when the picker opens.
+        _didInitialScroll = true;
+        _scrollToCurrentBook();
       }
       final selectionContext =
           _selectedVerseKey.currentContext ?? _selectedChapterKey.currentContext;
@@ -75,9 +96,34 @@ class _ReferencePickerScreenState extends ConsumerState<ReferencePickerScreen> {
     });
   }
 
+  /// The list builds rows lazily, so a book far down (Revelation) has no
+  /// context yet. Jump near it by estimate, then refine once it is built.
+  void _scrollToCurrentBook() {
+    final existing =
+        _expandedBookKey.currentContext ?? _currentBookKey.currentContext;
+    if (existing != null) {
+      Scrollable.ensureVisible(existing, alignment: 0.3);
+      return;
+    }
+    if (!_bookListController.hasClients) return;
+    final index = _visibleBooks.indexWhere((book) => book.id == _currentBookId);
+    if (index < 0) return;
+    final position = _bookListController.position;
+    final target = (index * _estimatedRowExtent - position.viewportDimension * 0.3)
+        .clamp(0.0, position.maxScrollExtent);
+    _bookListController.jumpTo(target);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final built =
+          _expandedBookKey.currentContext ?? _currentBookKey.currentContext;
+      if (built != null) Scrollable.ensureVisible(built, alignment: 0.3);
+    });
+  }
+
   @override
   void dispose() {
     _searchController.dispose();
+    _bookListController.dispose();
     super.dispose();
   }
 
@@ -264,9 +310,11 @@ class _ReferencePickerScreenState extends ConsumerState<ReferencePickerScreen> {
       bookId,
       chapterNumber,
     );
-    if (!mounted || chapter == null) return;
+    if (!mounted) return;
     setState(() {
-      _hydratedChapters[key] = chapter;
+      // A chapter that could not be loaded is stored empty, so the verse step
+      // can say there is nothing to pick instead of spinning forever.
+      _hydratedChapters[key] = chapter ?? BibleChapter(number: chapterNumber);
     });
     _scheduleEnsureSelectionVisible();
   }
@@ -276,9 +324,14 @@ class _ReferencePickerScreenState extends ConsumerState<ReferencePickerScreen> {
     if (widget.books.isEmpty) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
+    // On the wide layout the right-hand panel always needs a book, so with
+    // nothing expanded it shows the book the reader came from.
     final expandedBook = widget.books.firstWhere(
       (book) => book.id == expandedBookId,
-      orElse: () => widget.books.first,
+      orElse: () => widget.books.firstWhere(
+        (book) => book.id == _currentBookId,
+        orElse: () => widget.books.first,
+      ),
     );
     final shellChapter = expandedBook.chapters.firstWhere(
       (chapter) => chapter.number == selectedChapter,
@@ -290,8 +343,20 @@ class _ReferencePickerScreenState extends ConsumerState<ReferencePickerScreen> {
     final selectedChapterModel = _hydratedChapters[hydratedKey] ?? shellChapter;
     final visibleBooks = _visibleBooks;
     final colors = Theme.of(context).colorScheme;
+    final hydratedLoaded = _hydratedChapters.containsKey(hydratedKey);
 
-    return Scaffold(
+    return PopScope(
+      // In the verse step, Back returns to the chapter grid instead of
+      // closing the picker.
+      canPop: !(widget.showVerseSelector && _verseStep),
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        setState(() {
+          _verseStep = false;
+          selectedVerse = null;
+        });
+      },
+      child: Scaffold(
       appBar: AppBar(
         title: const Text('References'),
         actions: [
@@ -322,6 +387,7 @@ class _ReferencePickerScreenState extends ConsumerState<ReferencePickerScreen> {
         builder: (context, constraints) {
           final isDesktop = constraints.maxWidth >= 980;
           final isTablet = constraints.maxWidth >= 680;
+          _estimatedRowExtent = isDesktop ? 54 : 70;
 
           return Column(
             children: [
@@ -356,11 +422,14 @@ class _ReferencePickerScreenState extends ConsumerState<ReferencePickerScreen> {
                               width: 320,
                               child: _ReferenceBookList(
                                 books: visibleBooks,
-                                expandedBookId: expandedBookId,
+                                expandedBookId: expandedBook.id,
+                                currentBookId: _currentBookId,
                                 selectedChapter: selectedChapter,
                                 onBookTap: (book) => _handleBookTap(book),
                                 dense: false,
                                 expandedBookKey: _expandedBookKey,
+                                currentBookKey: _currentBookKey,
+                                controller: _bookListController,
                               ),
                             ),
                             const SizedBox(width: 20),
@@ -375,8 +444,12 @@ class _ReferencePickerScreenState extends ConsumerState<ReferencePickerScreen> {
                                 compact: false,
                                 selectedChapterKey: _selectedChapterKey,
                                 selectedVerseKey: _selectedVerseKey,
+                                inVerseStep: widget.showVerseSelector && _verseStep,
+                                versesLoaded: hydratedLoaded,
+                                onBackToChapters: _backToChapters,
                                 onChapterTap: (chapterNumber) {
-                                  if (!widget.showVerseSelector) {
+                                  if (!widget.showVerseSelector ||
+                                      isFrontMatterChapter(chapterNumber)) {
                                     _selectReference(
                                       BibleReference(
                                         bookId: expandedBook.id,
@@ -389,6 +462,7 @@ class _ReferencePickerScreenState extends ConsumerState<ReferencePickerScreen> {
                                     expandedBookId = expandedBook.id;
                                     selectedChapter = chapterNumber;
                                     selectedVerse = null;
+                                    _verseStep = true;
                                   });
                                   _hydrateChapter(
                                     expandedBook.id,
@@ -419,6 +493,7 @@ class _ReferencePickerScreenState extends ConsumerState<ReferencePickerScreen> {
                         ),
                       )
                     : ListView.builder(
+                        controller: _bookListController,
                         padding: EdgeInsets.fromLTRB(
                           isTablet ? 20 : 16,
                           0,
@@ -429,15 +504,20 @@ class _ReferencePickerScreenState extends ConsumerState<ReferencePickerScreen> {
                         itemBuilder: (context, index) {
                           final book = visibleBooks[index];
                           final isExpanded = book.id == expandedBookId;
+                          final isCurrent = book.id == _currentBookId;
                           final chapterForBook = book.id == expandedBook.id
                               ? selectedChapterModel
                               : (book.chapters.isNotEmpty
                                     ? book.chapters.first
                                     : const BibleChapter(number: 1));
                           return _ReferenceBookCard(
-                            key: isExpanded ? _expandedBookKey : null,
+                            key: isExpanded
+                                ? _expandedBookKey
+                                : (isCurrent ? _currentBookKey : null),
                             book: book,
                             isExpanded: isExpanded,
+                            isCurrent: isCurrent,
+                            currentChapter: _currentChapter,
                             selectedChapter: selectedChapter,
                             onBookTap: () => _handleBookTap(book),
                             child: isExpanded
@@ -451,8 +531,13 @@ class _ReferencePickerScreenState extends ConsumerState<ReferencePickerScreen> {
                                     compact: true,
                                     selectedChapterKey: _selectedChapterKey,
                                     selectedVerseKey: _selectedVerseKey,
+                                    inVerseStep:
+                                        widget.showVerseSelector && _verseStep,
+                                    versesLoaded: hydratedLoaded,
+                                    onBackToChapters: _backToChapters,
                                     onChapterTap: (chapterNumber) {
-                                      if (!widget.showVerseSelector) {
+                                      if (!widget.showVerseSelector ||
+                                          isFrontMatterChapter(chapterNumber)) {
                                         _selectReference(
                                           BibleReference(
                                             bookId: book.id,
@@ -465,6 +550,7 @@ class _ReferencePickerScreenState extends ConsumerState<ReferencePickerScreen> {
                                         expandedBookId = book.id;
                                         selectedChapter = chapterNumber;
                                         selectedVerse = null;
+                                        _verseStep = true;
                                       });
                                       _hydrateChapter(book.id, chapterNumber);
                                     },
@@ -496,11 +582,20 @@ class _ReferencePickerScreenState extends ConsumerState<ReferencePickerScreen> {
           );
         },
       ),
+      ),
     );
+  }
+
+  void _backToChapters() {
+    setState(() {
+      _verseStep = false;
+      selectedVerse = null;
+    });
   }
 
   void _handleBookTap(BibleBook book) {
     setState(() {
+      _verseStep = false;
       final isClosing = expandedBookId == book.id;
       expandedBookId = isClosing ? '' : book.id;
       if (!isClosing) {
@@ -574,18 +669,25 @@ class _ReferenceBookList extends StatelessWidget {
   const _ReferenceBookList({
     required this.books,
     required this.expandedBookId,
+    required this.currentBookId,
     required this.selectedChapter,
     required this.onBookTap,
     required this.dense,
     this.expandedBookKey,
+    this.currentBookKey,
+    this.controller,
   });
 
   final List<BibleBook> books;
   final String expandedBookId;
+  // The book the reader came from; marked with a bookmark and a border.
+  final String currentBookId;
   final int selectedChapter;
   final ValueChanged<BibleBook> onBookTap;
   final bool dense;
   final Key? expandedBookKey;
+  final Key? currentBookKey;
+  final ScrollController? controller;
 
   @override
   Widget build(BuildContext context) {
@@ -597,18 +699,27 @@ class _ReferenceBookList extends StatelessWidget {
         border: Border.all(color: colors.outlineVariant),
       ),
       child: ListView.separated(
+        controller: controller,
         padding: const EdgeInsets.all(12),
         itemCount: books.length,
         separatorBuilder: (_, _) => const SizedBox(height: 6),
         itemBuilder: (context, index) {
           final book = books[index];
           final isSelected = book.id == expandedBookId;
+          final isCurrent = book.id == currentBookId;
           return Material(
-            key: isSelected ? expandedBookKey : null,
+            key: isSelected
+                ? expandedBookKey
+                : (isCurrent ? currentBookKey : null),
             color: isSelected
                 ? colors.secondaryContainer
                 : colors.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
+              side: isCurrent
+                  ? BorderSide(color: colors.primary, width: 2)
+                  : BorderSide.none,
+            ),
             child: InkWell(
               borderRadius: BorderRadius.circular(16),
               onTap: () => onBookTap(book),
@@ -619,6 +730,15 @@ class _ReferenceBookList extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
+                    if (isCurrent)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: Icon(
+                          Icons.bookmark,
+                          size: 18,
+                          color: colors.primary,
+                        ),
+                      ),
                     Expanded(
                       child: Text(
                         preferredBookName(book),
@@ -654,6 +774,8 @@ class _ReferenceBookCard extends StatelessWidget {
     super.key,
     required this.book,
     required this.isExpanded,
+    required this.isCurrent,
+    required this.currentChapter,
     required this.selectedChapter,
     required this.onBookTap,
     this.child,
@@ -661,6 +783,9 @@ class _ReferenceBookCard extends StatelessWidget {
 
   final BibleBook book;
   final bool isExpanded;
+  // True for the book the reader came from: highlighted even while collapsed.
+  final bool isCurrent;
+  final int currentChapter;
   final int selectedChapter;
   final VoidCallback onBookTap;
   final Widget? child;
@@ -673,12 +798,17 @@ class _ReferenceBookCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: isExpanded
             ? colors.surfaceContainerLow
-            : colors.surfaceContainerHighest,
+            : (isCurrent
+                  ? colors.secondaryContainer
+                  : colors.surfaceContainerHighest),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: isExpanded
-              ? colors.primary.withValues(alpha: 0.3)
-              : colors.outlineVariant,
+          color: isCurrent
+              ? colors.primary
+              : (isExpanded
+                    ? colors.primary.withValues(alpha: 0.3)
+                    : colors.outlineVariant),
+          width: isCurrent ? 2 : 1,
         ),
       ),
       child: Column(
@@ -690,6 +820,11 @@ class _ReferenceBookCard extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
               child: Row(
                 children: [
+                  if (isCurrent)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: Icon(Icons.bookmark, color: colors.primary),
+                    ),
                   Expanded(
                     child: Text(
                       preferredBookName(book),
@@ -698,6 +833,19 @@ class _ReferenceBookCard extends StatelessWidget {
                       ),
                     ),
                   ),
+                  if (isCurrent && !isExpanded)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 10),
+                      child: Text(
+                        isFrontMatterChapter(currentChapter)
+                            ? 'Reading'
+                            : 'Reading $currentChapter',
+                        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                          color: colors.primary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
                   if (isExpanded && !isFrontMatterChapter(selectedChapter))
                     Padding(
                       padding: const EdgeInsets.only(right: 10),
@@ -740,6 +888,9 @@ class _ReferenceSelectionPanel extends StatelessWidget {
     required this.onChapterSelect,
     required this.onVerseTap,
     required this.compact,
+    required this.inVerseStep,
+    required this.versesLoaded,
+    required this.onBackToChapters,
     this.selectedChapterKey,
     this.selectedVerseKey,
   });
@@ -754,68 +905,73 @@ class _ReferenceSelectionPanel extends StatelessWidget {
   final VoidCallback onChapterSelect;
   final ValueChanged<int> onVerseTap;
   final bool compact;
+  // "Enable Verse Selector": after a chapter is tapped the chapter grid is
+  // replaced by that chapter's verse grid (this flag), and Back returns.
+  final bool inVerseStep;
+  final bool versesLoaded;
+  final VoidCallback onBackToChapters;
   final Key? selectedChapterKey;
   final Key? selectedVerseKey;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final content = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        if (!compact) ...[
-          Text(
-            preferredBookName(book),
-            style: theme.textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
+    final Widget content;
+
+    if (showVerseSelector && inVerseStep) {
+      final chapterLabel = chapterReferenceLabel(
+        preferredBookName(book),
+        selectedChapter,
+      );
+      content = Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              IconButton(
+                tooltip: 'Back to chapters',
+                visualDensity: VisualDensity.compact,
+                icon: const Icon(Icons.arrow_back),
+                onPressed: onBackToChapters,
+              ),
+              Expanded(
+                child: Text(
+                  chapterLabel,
+                  style:
+                      (compact
+                              ? theme.textTheme.titleMedium
+                              : theme.textTheme.titleLarge)
+                          ?.copyWith(fontWeight: FontWeight.w700),
+                ),
+              ),
+              TextButton(
+                onPressed: onChapterSelect,
+                child: const Text('Open chapter'),
+              ),
+            ],
           ),
-          const SizedBox(height: 6),
-          Text(
-            'Pick a chapter${showVerseSelector ? ' and optionally a verse' : ''}.',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: colors.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 18),
-        ],
-        _ReferenceSectionLabel(label: 'Chapters', compact: compact),
-        const SizedBox(height: 10),
-        _ReferenceNumberGrid(
-          itemCount: book.chapters.length,
-          compact: compact,
-          itemBuilder: (context, index) {
-            final chapter = book.chapters[index];
-            final isSelected = chapter.number == selectedChapter;
-            return _ReferenceNumberTile(
-              key: isSelected ? selectedChapterKey : null,
-              // A front-matter book's single page (#87) has no number.
-              label: isFrontMatterChapter(chapter.number)
-                  ? 'Read'
-                  : '${chapter.number}',
-              isSelected: isSelected,
-              colors: colors,
-              compact: compact,
-              onTap: () => onChapterTap(chapter.number),
-            );
-          },
-        ),
-        if (showVerseSelector) ...[
-          SizedBox(height: compact ? 14 : 18),
-          TextButton.icon(
-            onPressed: onChapterSelect,
-            icon: const Icon(Icons.arrow_forward, size: 18),
-            label: Text(
-              'Go to ${chapterReferenceLabel(preferredBookName(book), selectedChapter)}',
-            ),
-          ),
-          if (selectedChapterModel.verses.isNotEmpty) ...[
-            SizedBox(height: compact ? 10 : 14),
-            _ReferenceSectionLabel(
-              label: 'Verses in $selectedChapter',
-              compact: compact,
-            ),
-            const SizedBox(height: 10),
+          SizedBox(height: compact ? 6 : 10),
+          _ReferenceSectionLabel(label: 'Pick a verse', compact: compact),
+          const SizedBox(height: 10),
+          if (!versesLoaded)
+            const Center(
+              child: Padding(
+                padding: EdgeInsets.all(16),
+                child: SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ),
+            )
+          else if (selectedChapterModel.verses.isEmpty)
+            Text(
+              'There are no verses to choose from. Use Open chapter to read it.',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colors.onSurfaceVariant,
+              ),
+            )
+          else
             _ReferenceNumberGrid(
               itemCount: selectedChapterModel.verses.length,
               compact: compact,
@@ -833,10 +989,52 @@ class _ReferenceSelectionPanel extends StatelessWidget {
                 );
               },
             ),
-          ],
         ],
-      ],
-    );
+      );
+    } else {
+      content = Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (!compact) ...[
+            Text(
+              preferredBookName(book),
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Pick a chapter${showVerseSelector ? ', then a verse' : ''}.',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colors.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 18),
+          ],
+          _ReferenceSectionLabel(label: 'Chapters', compact: compact),
+          const SizedBox(height: 10),
+          _ReferenceNumberGrid(
+            itemCount: book.chapters.length,
+            compact: compact,
+            itemBuilder: (context, index) {
+              final chapter = book.chapters[index];
+              final isSelected = chapter.number == selectedChapter;
+              return _ReferenceNumberTile(
+                key: isSelected ? selectedChapterKey : null,
+                // A front-matter book's single page (#87) has no number.
+                label: isFrontMatterChapter(chapter.number)
+                    ? 'Read'
+                    : '${chapter.number}',
+                isSelected: isSelected,
+                colors: colors,
+                compact: compact,
+                onTap: () => onChapterTap(chapter.number),
+              );
+            },
+          ),
+        ],
+      );
+    }
 
     if (compact) {
       return Padding(
