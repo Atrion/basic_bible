@@ -1,3 +1,19 @@
+# From Gravel Hill Bible
+
+A Bible reader with notes, highlights, a prayer list, a verse of the day, split
+view and optional Google Drive sync. Built and maintained by
+[From Gravel Hill Enterprises](https://fromgravelhill.ca/).
+
+> **Built on Basic Bible by PopGTN.** This app exists because of
+> [PopGTN](https://github.com/PopGTN) (Joshua Mckenna), who created
+> [Basic Bible](https://github.com/PopGTN/basic_bible), shared it openly under
+> the Apache License 2.0, and inspired the direction this app has taken. The
+> reader, the notes and highlights, the translation catalog and downloads, the
+> split view, the Bible search, the Google Drive notes sync and the Bible parser
+> are his work. Thank you. See [NOTICE](NOTICE) and [LICENSE](LICENSE).
+
+---
+
 # Basic Bible App
 
 `basic_bible` is the Flutter app in this workspace. It is both a working Bible reader and a prototype app for testing parser, reader, and UI ideas before they are carried into larger Bible-study apps later.

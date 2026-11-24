@@ -34,6 +34,11 @@ class TranslationNotifier extends StateNotifier<String> {
     state = translationId;
     if (persist) {
       await _prefs.setString('bible_translation', translationId);
+      // Part of the reading position that follows the user between devices.
+      await _prefs.setInt(
+        'bible_position_updated_at',
+        DateTime.now().millisecondsSinceEpoch,
+      );
     }
   }
 }
@@ -123,6 +128,14 @@ class ReferenceNotifier extends StateNotifier<BibleReference> {
       reference.verse != null
           ? _prefs.setInt('bible_verse', reference.verse!)
           : _prefs.remove('bible_verse'),
+      // When the reader last moved, so the most recent device can offer its
+      // position to the others. Automatic re-anchoring (focusVerse: false)
+      // is not the reader moving, so it must not look like fresh reading.
+      if (focusVerse)
+        _prefs.setInt(
+          'bible_position_updated_at',
+          DateTime.now().millisecondsSinceEpoch,
+        ),
     ]);
   }
 

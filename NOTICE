@@ -1,0 +1,24 @@
+From Gravel Hill Bible
+Copyright 2026 From Gravel Hill Enterprises (https://fromgravelhill.ca/)
+
+This product is built on Basic Bible, created by PopGTN (Joshua Mckenna) and
+released under the Apache License, Version 2.0.
+
+  Basic Bible: https://github.com/PopGTN/basic_bible
+  Bible parser (bible_parser_flutter): https://github.com/PopGTN/bible_parser_flutter
+  Translation data (bible-data): https://github.com/PopGTN/bible-data
+
+This product includes software developed by Joshua Mckenna.
+
+Thank you, PopGTN, for creating Basic Bible, for sharing it openly, and for
+inspiring the direction this app has taken. The reader, the notes and
+highlights, the translation catalog and downloads, the split view, the Bible
+search, the Google Drive notes sync and the Bible parser are all his work.
+
+Changes made by From Gravel Hill Enterprises include: a new app name, icon and
+identity; Settings and Extras tabs in the bottom navigation, which stays in
+view; a Prayer List; a Verse of the Day; Google Drive sync of the prayer list,
+settings and reading position; credits and licence pages; release, Google Play
+bundle and website build workflows; and assorted fixes.
+
+The full text of the Apache License, Version 2.0 is in the LICENSE file.

@@ -26,11 +26,11 @@ class MenuTab extends ConsumerWidget {
           onTap: () => context.push('/home/prayer-list'),
         ),
 
-        // Verses of the Day
+        // Verse of the Day
         ListTile(
           leading: const Icon(Icons.auto_stories),
-          title: const Text("Verses of the Day"),
-          onTap: () => context.push('/coming-soon/verses'),
+          title: const Text("Verse of the Day"),
+          onTap: () => context.push('/home/verse-of-the-day'),
         ),
       ],
     );

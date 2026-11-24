@@ -14,6 +14,8 @@ import 'features/reader/models/reader_deep_link.dart';
 import 'features/library/presentation/versions_screen.dart';
 import 'features/annotations/presentation/notes_screen.dart';
 import 'features/prayer/presentation/prayer_list_screen.dart';
+import 'features/settings/presentation/credits_screen.dart';
+import 'features/verse_of_day/presentation/verse_of_day_screen.dart';
 import 'features/settings/presentation/advanced_settings_screen.dart';
 import 'views/placeholder/coming_soon_screen.dart';
 
@@ -64,6 +66,16 @@ class _MyAppState extends ConsumerState<MyApp> {
     ref.read(autoSyncSchedulerProvider).schedule();
   }
 
+  /// When the app goes to the background, push whatever changed (settings and
+  /// the reading position are not tracked change-by-change like notes are).
+  void _syncWhenLeaving() {
+    if (ref.read(syncModeProvider) == SyncMode.manual) return;
+    final controller = ref.read(syncControllerProvider.notifier);
+    if (!ref.read(syncControllerProvider).isSignedIn) return;
+    controller.markLocalChange();
+    controller.requestAutoSync();
+  }
+
   /// Only listens while the app is in the foreground, and only reacts to an
   /// offline → online transition (not Wi-Fi ↔ cellular handoffs, and not the
   /// initial status some platforms emit on subscribe).
@@ -95,7 +107,10 @@ class _MyAppState extends ConsumerState<MyApp> {
         _runRetentionCleanupIfDue();
         _scheduleAutoSync();
       },
-      onHide: _stopConnectivityListener,
+      onHide: () {
+        _stopConnectivityListener();
+        _syncWhenLeaving();
+      },
     );
     _router = GoRouter(
       initialLocation: '/home',
@@ -114,6 +129,14 @@ class _MyAppState extends ConsumerState<MyApp> {
             GoRoute(
               path: 'translations',
               builder: (context, state) => const VersionsScreen(),
+            ),
+            GoRoute(
+              path: 'credits',
+              builder: (context, state) => const CreditsScreen(),
+            ),
+            GoRoute(
+              path: 'verse-of-the-day',
+              builder: (context, state) => const VerseOfDayScreen(),
             ),
             GoRoute(
               path: 'prayer-list',

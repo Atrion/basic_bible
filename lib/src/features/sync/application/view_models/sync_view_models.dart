@@ -1,9 +1,16 @@
+import 'package:basic_bible/src/features/prayer/application/prayer_list_view_model.dart';
 import 'package:basic_bible/src/features/sync/application/auto_sync_scheduler.dart';
+import 'package:basic_bible/src/features/sync/application/settings_refresh.dart';
+import 'package:basic_bible/src/features/sync/data/drive_extras_api.dart';
+import 'package:basic_bible/src/features/sync/data/extras_merge.dart';
+import 'package:basic_bible/src/features/sync/data/extras_sync_repository.dart';
+import 'package:basic_bible/src/features/sync/data/google_drive_extras_api.dart';
 import 'package:basic_bible/src/features/sync/data/google_auth_service.dart';
 import 'package:basic_bible/src/features/sync/data/google_drive_notes_api.dart';
 import 'package:basic_bible/src/features/sync/data/notes_sync_repository.dart';
 import 'package:basic_bible/src/services/app_database.dart';
 import 'package:basic_bible/src/services/shared_preferences_provider.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:http/http.dart' as http;
@@ -26,6 +33,28 @@ final notesSyncRepositoryProvider = Provider<NotesSyncRepository>((ref) {
     api: ref.watch(driveNotesApiProvider),
   );
 });
+
+final driveExtrasApiProvider = Provider<DriveExtrasApi>((ref) {
+  final client = http.Client();
+  ref.onDispose(client.close);
+  return GoogleDriveExtrasApi(client);
+});
+
+/// Settings, reading position and prayer list: synced beside the notes.
+final extrasSyncRepositoryProvider = Provider<ExtrasSyncRepository>((ref) {
+  final auth = ref.watch(googleAuthServiceProvider);
+  return ExtrasSyncRepository(
+    prefs: ref.read(sharedPreferencesProvider),
+    accessToken: auth.getAccessToken,
+    api: ref.watch(driveExtrasApiProvider),
+  );
+});
+
+/// A newer reading position from another device, waiting for the reader to
+/// accept ("Continue reading...") or ignore it. Null when there is none.
+final readingPositionOfferProvider = StateProvider<PositionSnapshot?>(
+  (ref) => null,
+);
 
 enum SyncPhase { idle, syncing, error }
 
@@ -93,7 +122,11 @@ class SyncController extends StateNotifier<SyncState> {
     this._repository,
     this._prefs, {
     DateTime Function()? clock,
+    ExtrasSyncRepository? extras,
+    void Function(ExtrasSyncSummary summary)? onExtrasSynced,
   }) : _now = clock ?? DateTime.now,
+       _extras = extras,
+       _onExtrasSynced = onExtrasSynced,
        super(const SyncState()) {
     _restore();
   }
@@ -112,6 +145,8 @@ class SyncController extends StateNotifier<SyncState> {
   final NotesSyncRepository _repository;
   final SharedPreferences _prefs;
   final DateTime Function() _now;
+  final ExtrasSyncRepository? _extras;
+  final void Function(ExtrasSyncSummary summary)? _onExtrasSynced;
 
   bool _pendingResync = false;
   Duration? _backoff;
@@ -226,6 +261,7 @@ class SyncController extends StateNotifier<SyncState> {
     await _prefs.setBool(_dirtyKey, false);
     try {
       await _repository.syncOnce();
+      await _syncExtras();
       final now = _now();
       await _prefs.setString(_lastSyncKey, now.toIso8601String());
       _resetBackoff();
@@ -255,6 +291,22 @@ class SyncController extends StateNotifier<SyncState> {
     }
   }
 
+  /// Settings, reading position and prayer list. A problem here must not turn
+  /// a successful notes sync into a reported failure, so it is logged only;
+  /// a lost sign-in still propagates.
+  Future<void> _syncExtras() async {
+    final extras = _extras;
+    if (extras == null) return;
+    try {
+      final summary = await extras.syncOnce();
+      _onExtrasSynced?.call(summary);
+    } on GoogleSignInRequiredException {
+      rethrow;
+    } catch (e) {
+      debugPrint('Extras sync failed: $e');
+    }
+  }
+
   void _registerFailure() {
     final previous = _backoff;
     final next = previous == null ? _initialBackoff : previous * 2;
@@ -278,6 +330,18 @@ final syncControllerProvider = StateNotifierProvider<SyncController, SyncState>(
       ref.watch(googleAuthServiceProvider),
       ref.watch(notesSyncRepositoryProvider),
       ref.read(sharedPreferencesProvider),
+      extras: ref.watch(extrasSyncRepositoryProvider),
+      onExtrasSynced: (summary) {
+        final prefs = ref.read(sharedPreferencesProvider);
+        if (summary.settingsChanged) reloadSyncedSettings(ref, prefs);
+        if (summary.prayerChanged) {
+          ref.read(prayerListProvider.notifier).reload();
+        }
+        final offered = summary.offeredPosition;
+        if (offered != null) {
+          ref.read(readingPositionOfferProvider.notifier).state = offered;
+        }
+      },
     );
   },
 );

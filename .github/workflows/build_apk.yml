@@ -193,9 +193,13 @@ jobs:
       # Optional: add a GOOGLE_WEB_CLIENT_ID repository secret to enable Google
       # sign-in (notes sync/backup) in the built app. Without it the app still
       # works, but the Google sign-in option will not.
-      - name: Build APK
+      # Also builds the Google Play app bundle (.aab), but only when a release
+      # key is configured: Play needs an upload key, and a debug-signed bundle
+      # would be rejected.
+      - name: Build APK and Play bundle
         env:
           GOOGLE_WEB_CLIENT_ID: ${{ secrets.GOOGLE_WEB_CLIENT_ID }}
+          SIGNED: ${{ steps.signing.outputs.signed }}
         run: |
           DEFINES=()
           DEFINES+=("--dart-define=APP_VERSION=${{ steps.version.outputs.version }}")
@@ -206,12 +210,24 @@ jobs:
             --build-name="${{ steps.version.outputs.version }}" \
             --build-number="${{ steps.version.outputs.build_number }}" \
             "${DEFINES[@]}"
+          if [ "$SIGNED" = "release key" ]; then
+            flutter build appbundle --release \
+              --build-name="${{ steps.version.outputs.version }}" \
+              --build-number="${{ steps.version.outputs.build_number }}" \
+              "${DEFINES[@]}"
+          else
+            echo "::warning title=Google Play::No release key, so no Play bundle was built."
+          fi
 
-      - name: Name the APK
+      - name: Name the APK and bundle
         run: |
           mkdir -p releases
           cp build/app/outputs/flutter-apk/app-release.apk \
              "releases/from-gravel-hill-bible-v${{ steps.version.outputs.version }}.apk"
+          if [ -f build/app/outputs/bundle/release/app-release.aab ]; then
+            cp build/app/outputs/bundle/release/app-release.aab \
+               "releases/from-gravel-hill-bible-v${{ steps.version.outputs.version }}.aab"
+          fi
           ls -lh releases
 
       - name: Publish GitHub Release
@@ -223,6 +239,9 @@ jobs:
           NOTES: ${{ inputs.notes }}
         run: |
           set -euo pipefail
+
+          APK_NAME="from-gravel-hill-bible-v$VERSION.apk"
+          SUM=$(sha256sum "releases/$APK_NAME" | cut -d ' ' -f 1)
 
           # ---- changelog: commits since the previous release ----
           if [ -n "$PREV_TAG" ] \
@@ -255,15 +274,41 @@ jobs:
             fi
             echo
             echo "---"
+            echo
+            echo "**Install:** download \`$APK_NAME\` on your Android phone, open it, and allow installs from your browser if asked."
+            echo
+            echo "**SHA-256:** \`$SUM\`"
+            echo
             echo "Build: versionName \`$VERSION\`, signed with: $SIGNED"
             echo "Commit: \`${GITHUB_SHA::7}\`"
           } > release_notes.md
 
-          gh release create "v$VERSION" "releases/from-gravel-hill-bible-v$VERSION.apk" \
+          gh release create "v$VERSION" "releases/$APK_NAME" \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
             --title "v$VERSION" \
             --notes-file release_notes.md
+
+          # The Google Play bundle goes in a DRAFT release: a draft is visible
+          # only to people with write access to this repository, so the bundle
+          # is private. Download it there, upload it in the Play Console, then
+          # delete the draft. Never click Publish on it.
+          AAB="releases/from-gravel-hill-bible-v$VERSION.aab"
+          if [ -f "$AAB" ]; then
+            if gh release view "play-v$VERSION" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+              echo "::notice title=Google Play::play-v$VERSION already exists and was left unchanged."
+            else
+              gh release create "play-v$VERSION" "$AAB" \
+                --repo "$GITHUB_REPOSITORY" \
+                --draft \
+                --target "$GITHUB_SHA" \
+                --title "Google Play bundle $VERSION (private)" \
+                --notes "Private file for the Play Console. Upload it there, then delete this draft. Never click Publish on it."
+              echo "::notice title=Google Play::The app bundle is in a private draft release named play-v$VERSION."
+            fi
+          else
+            echo "::warning title=Google Play::No release key was found, so no app bundle was made."
+          fi
 
       - name: Keep a copy as a workflow artifact
         uses: actions/upload-artifact@v4

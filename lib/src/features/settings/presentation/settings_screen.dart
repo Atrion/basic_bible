@@ -121,6 +121,12 @@ class SettingsTab extends ConsumerWidget {
             ),
             ListTile(
               contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.favorite_border),
+              title: const Text('Credits & Thanks'),
+              onTap: () => context.push('/home/credits'),
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.help_outline),
               title: const Text('Help'),
               onTap: () => context.push('/coming-soon/help'),

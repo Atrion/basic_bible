@@ -27,7 +27,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get goToOther => 'Aller à l\'autre page';
 
   @override
-  String get aboutDescription => 'From Gravel Hill Bible est un lecteur de la Bible gratuit avec notes, surlignages, lecture à voix haute, affichage en écran partagé et synchronisation facultative avec Google Drive. Il est conçu et maintenu par From Gravel Hill Enterprises (https://fromgravelhill.ca/) et repose sur l’application open source Basic Bible de PopGTN.';
+  String get aboutDescription => 'From Gravel Hill Bible est un lecteur de la Bible gratuit avec notes, surlignages, liste de prière, verset du jour, affichage en écran partagé et synchronisation facultative de vos notes et réglages avec Google Drive. Il est conçu et maintenu par From Gravel Hill Enterprises (https://fromgravelhill.ca/) et repose sur Basic Bible, l’application open source créée par PopGTN.';
 
   @override
   String get language => 'Langue';

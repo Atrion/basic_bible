@@ -93,3 +93,22 @@ app works normally.
 - An unchanged library syncs with a single HTTP call (each file's
   `updatedAt` is stamped into Drive `appProperties`, so planning happens on
   the listing alone).
+
+
+## What syncs
+
+Everything below goes to the signed-in user's own hidden Google Drive
+app-data folder. The app can see only that folder.
+
+| Data | How it merges |
+|---|---|
+| Notes and highlights | One file per note (`<uuid>.json`); the newest edit wins; deletions sync |
+| Prayer list | One file per name (`prayer-<id>.sync`); the newest change wins; a removal beats an edit made at the same instant; removal markers are kept for 60 days |
+| Settings | One file (`settings.sync`); merged setting by setting, the newest change wins. The synced settings are listed in `kSyncedSettingKeys` in `lib/src/features/sync/data/extras_merge.dart`. Device-only state (sync mode, split-view state, history, the catalog URL override) is never synced |
+| Reading position | One file (`position.sync`); another device's newer position is *offered* ("Continue reading...") and never applied without asking |
+
+The extras use the `.sync` extension on purpose: the note sync treats every
+`.json` file in the folder as a note, so older installs must never see them.
+
+When you add a new synced setting, add its key to `kSyncedSettingKeys` and its
+provider to `reloadSyncedSettings` (`sync/application/settings_refresh.dart`).

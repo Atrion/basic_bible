@@ -41,7 +41,7 @@ class _PrayerListScreenState extends ConsumerState<PrayerListScreen> {
     });
   }
 
-  void _remove(PrayerItem item, int index) {
+  void _remove(PrayerItem item) {
     final notifier = ref.read(prayerListProvider.notifier);
     notifier.remove(item.id);
     ScaffoldMessenger.of(context)
@@ -51,7 +51,7 @@ class _PrayerListScreenState extends ConsumerState<PrayerListScreen> {
           content: const Text('Removed from your prayer list'),
           action: SnackBarAction(
             label: 'Undo',
-            onPressed: () => notifier.insertAt(index, item),
+            onPressed: () => notifier.restore(item),
           ),
         ),
       );
@@ -93,14 +93,14 @@ class _PrayerListScreenState extends ConsumerState<PrayerListScreen> {
                               color: colors.onErrorContainer,
                             ),
                           ),
-                          onDismissed: (_) => _remove(item, index),
+                          onDismissed: (_) => _remove(item),
                           child: ListTile(
                             leading: const Icon(Icons.favorite_border),
                             title: Text(item.text),
                             trailing: IconButton(
                               tooltip: 'Remove',
                               icon: const Icon(Icons.close),
-                              onPressed: () => _remove(item, index),
+                              onPressed: () => _remove(item),
                             ),
                           ),
                         );
