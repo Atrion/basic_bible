@@ -15,19 +15,28 @@ void main() {
     }
   });
 
-  test('sql.js is registered on web with its MIT text, and not on native',
+  test('the Basic Bible notice is listed everywhere, sql.js on web only',
       () async {
     LicenseRegistry.reset();
     registerAdditionalLicenses(isWeb: false);
-    expect(await LicenseRegistry.licenses.toList(), isEmpty);
+    final native = await LicenseRegistry.licenses.toList();
+    expect(native.map((e) => e.packages.single).toList(), [
+      'Basic Bible (created by PopGTN)',
+    ]);
+    final notice = native.single.paragraphs.map((p) => p.text).join('\n');
+    expect(notice, contains('PopGTN'));
+    expect(notice, contains('Apache License'));
 
     LicenseRegistry.reset();
     registerAdditionalLicenses(isWeb: true);
-    final entries = await LicenseRegistry.licenses.toList();
-    expect(entries.single.packages, ['sql.js']);
-    final text = entries.single.paragraphs.map((p) => p.text).join('\n');
-    expect(text, contains('MIT license'));
-    expect(text, contains('Copyright (c) 2017 sql.js authors'));
+    final web = await LicenseRegistry.licenses.toList();
+    expect(web.map((e) => e.packages.single).toList(), [
+      'Basic Bible (created by PopGTN)',
+      'sql.js',
+    ]);
+    final sql = web.last.paragraphs.map((p) => p.text).join('\n');
+    expect(sql, contains('MIT license'));
+    expect(sql, contains('Copyright (c) 2017 sql.js authors'));
     LicenseRegistry.reset();
   });
 }

@@ -6,6 +6,9 @@ import 'package:basic_bible/src/features/annotations/application/view_models/ann
 import 'package:basic_bible/src/features/library/data/app_bible_repository.dart';
 import 'package:basic_bible/src/features/home/application/view_models/home_navigation_view_model.dart';
 import 'package:basic_bible/src/features/settings/presentation/settings_screen.dart';
+import 'package:basic_bible/src/features/sync/application/view_models/sync_view_models.dart';
+import 'package:basic_bible/src/features/sync/data/extras_merge.dart';
+import 'package:basic_bible/src/utils/reference_utils.dart';
 import 'package:basic_bible/src/features/menu/presentation/menu_tab.dart';
 import 'package:basic_bible/src/features/reader/application/view_models/split_view_view_models.dart';
 import 'package:basic_bible/src/features/reader/presentation/split_view/split_reader_layout.dart';
@@ -44,7 +47,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   late int _currentIndex; // currently selected tab index
 
   // Animation controllers for BottomNav + AppBar show/hide
-  late final AnimationController _bottomNavController;
   late final AnimationController _appBarController;
 
   // Tracks the previous isWide value so we can reset controllers when the
@@ -63,7 +65,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   void initState() {
     super.initState();
     _currentIndex = ref.read(homeTabIndexProvider);
-    _bottomNavController = _createController();
     _appBarController = _createController();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -82,15 +83,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   @override
   void dispose() {
-    _bottomNavController.dispose();
     _appBarController.dispose();
     super.dispose();
   }
 
   // === Animation helpers for child widgets (BibleViewerTab) ===
-  void showBottomNav() => _bottomNavController.forward();
+  // The bottom navigation bar is always visible, so these do nothing. They
+  // stay so the Bible viewer's scroll handling does not need to change.
+  void showBottomNav() {}
 
-  void hideBottomNav() => _bottomNavController.reverse();
+  void hideBottomNav() {}
 
   void showAppBar() => _appBarController.forward();
 
@@ -199,8 +201,55 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     }
   }
 
+  String _positionLabel(PositionSnapshot position) {
+    final books =
+        ref.read(bibleBooksShellProvider).asData?.value ?? const <BibleBook>[];
+    final book = books.where((b) => b.id == position.bookId).firstOrNull;
+    final name = book == null ? position.bookId : preferredBookName(book);
+    return '$name ${position.chapter}'
+        '${position.verse != null ? ':${position.verse}' : ''}';
+  }
+
+  /// Another device read more recently: offer to continue there. The reader
+  /// is never moved without being asked.
+  void _offerReadingPosition(PositionSnapshot position) {
+    ScaffoldMessenger.of(context)
+      ..clearSnackBars()
+      ..showSnackBar(
+        SnackBar(
+          duration: const Duration(seconds: 12),
+          content: Text(
+            'Continue reading ${_positionLabel(position)} from your other '
+            'device?',
+          ),
+          action: SnackBarAction(
+            label: 'Continue',
+            onPressed: () async {
+              await ref
+                  .read(currentReferenceProvider.notifier)
+                  .setReference(
+                    BibleReference(
+                      bookId: position.bookId,
+                      chapter: position.chapter,
+                      verse: position.verse,
+                    ),
+                  );
+              if (!mounted) return;
+              setState(() => _currentIndex = bibleTabIndex);
+              ref.read(homeTabIndexProvider.notifier).state = bibleTabIndex;
+            },
+          ),
+        ),
+      );
+  }
+
   @override
   Widget build(BuildContext context) {
+    ref.listen<PositionSnapshot?>(readingPositionOfferProvider, (_, offer) {
+      if (offer == null) return;
+      ref.read(readingPositionOfferProvider.notifier).state = null;
+      _offerReadingPosition(offer);
+    });
     final t = AppLocalizations.of(context)!;
     final syncedTabIndex = ref.watch(homeTabIndexProvider);
     if (syncedTabIndex != _currentIndex) {
@@ -217,7 +266,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     // rendered. Reset them so the bar is visible on the first small-screen
     // frame — scroll-hide will take over naturally from there.
     if (_wasWide && !isWide) {
-      _bottomNavController.value = 1.0;
       _appBarController.value = 1.0;
     }
     _wasWide = isWide;
@@ -226,18 +274,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     final duration = isSmall
         ? const Duration(milliseconds: 250)
         : Duration.zero;
-    _bottomNavController.duration = duration;
     _appBarController.duration = duration;
 
     final tabs = _buildTabs(t, isSmall);
     final currentTab = tabs[_currentIndex];
     final isBibleTab = _currentIndex == 0; // Bible is the first (main) tab
-    final navTheme = Theme.of(context);
-    final navBarColor =
-        navTheme.bottomNavigationBarTheme.backgroundColor ??
-        (navTheme.useMaterial3
-            ? navTheme.colorScheme.surfaceContainer
-            : navTheme.canvasColor);
 
     return PopScope(
       // Back on any other tab (e.g. Menu) returns to the Bible tab first.
@@ -282,58 +323,32 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       // Bottom navigation only for small screens
       bottomNavigationBar: isWide
           ? null
-          : Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                SizeTransition(
-              sizeFactor: _bottomNavController.drive(
-                CurveTween(curve: Curves.easeInOut),
+          // Always visible: it never hides when scrolling.
+          : Theme(
+              // The bottom tabs should switch immediately without the
+              // default Material ripple since this shell is being styled
+              // more like a static app dock than a tappable card row.
+              data: Theme.of(context).copyWith(
+                splashFactory: NoSplash.splashFactory,
+                splashColor: Colors.transparent,
+                highlightColor: Colors.transparent,
+                hoverColor: Colors.transparent,
               ),
-              axisAlignment: -1,
-              child: MediaQuery.removeViewPadding(
-                context: context,
-                removeBottom: true,
-                child: Theme(
-                // The bottom tabs should switch immediately without the
-                // default Material ripple since this shell is being styled
-                // more like a static app dock than a tappable card row.
-                data: Theme.of(context).copyWith(
-                  splashFactory: NoSplash.splashFactory,
-                  splashColor: Colors.transparent,
-                  highlightColor: Colors.transparent,
-                  hoverColor: Colors.transparent,
-                ),
-                child: BottomNavigationBar(
-                  currentIndex: _currentIndex,
-                  onTap: (i) => setState(() {
-                    _currentIndex = i;
-                    ref.read(homeTabIndexProvider.notifier).state = i;
-                  }),
-                  items: tabs
-                      .map(
-                        (tab) => BottomNavigationBarItem(
-                          icon: Icon(tab.icon),
-                          label: tab.title,
-                        ),
-                      )
-                      .toList(),
-                ),
+              child: BottomNavigationBar(
+                currentIndex: _currentIndex,
+                onTap: (i) => setState(() {
+                  _currentIndex = i;
+                  ref.read(homeTabIndexProvider.notifier).state = i;
+                }),
+                items: tabs
+                    .map(
+                      (tab) => BottomNavigationBarItem(
+                        icon: Icon(tab.icon),
+                        label: tab.title,
+                      ),
+                    )
+                    .toList(),
               ),
-              ),
-            ),
-                // Always reserve the system navigation-bar area (3-button or
-                // gesture bar), even while the tabs are hidden by scrolling.
-                // Scaffold strips bottom padding from the body whenever a
-                // bottomNavigationBar exists, so without this the floating
-                // chapter bar and snackbars slide behind the system buttons.
-                ColoredBox(
-                  color: navBarColor,
-                  child: SizedBox(
-                    width: double.infinity,
-                    height: MediaQuery.of(context).viewPadding.bottom,
-                  ),
-                ),
-              ],
             ),
       ),
     );

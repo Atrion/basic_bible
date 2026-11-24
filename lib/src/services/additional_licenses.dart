@@ -26,6 +26,12 @@ class AdditionalLicense {
 }
 
 const List<AdditionalLicense> kAdditionalLicenses = [
+  // The attribution notice for the app this one is built on (Apache-2.0
+  // section 4(d)); the same text is in the NOTICE file at the repo root.
+  AdditionalLicense(
+    packages: ['Basic Bible (created by PopGTN)'],
+    assetPath: 'assets/licenses/basic_bible_notice.txt',
+  ),
   // SQLite compiled to WebAssembly; web/index.html loads it from cdnjs for
   // drift's web database. SQLite itself is public domain.
   AdditionalLicense(

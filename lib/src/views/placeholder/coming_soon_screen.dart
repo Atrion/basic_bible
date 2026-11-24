@@ -8,7 +8,6 @@ class ComingSoonScreen extends StatelessWidget {
 
   static const Map<String, String> _featureTitles = {
     'notes': 'Notes',
-    'verses': 'Verses of the Day',
     'about': 'About',
     'donate': 'Donate',
     'help': 'Help',

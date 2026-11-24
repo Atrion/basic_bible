@@ -7,7 +7,7 @@ const String _appName = 'From Gravel Hill Bible';
 const String _legalese =
     'Free and open source under the Apache License 2.0.\n'
     'Built and maintained by From Gravel Hill Enterprises.\n'
-    'Based on Basic Bible by PopGTN.\n'
+    'Built on Basic Bible, created by PopGTN.\n'
     'The license and rights notice for each Bible translation is shown with '
     'its text.';
 

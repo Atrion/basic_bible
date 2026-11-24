@@ -1,101 +1,114 @@
-import 'dart:convert';
-
+import 'package:basic_bible/src/features/sync/application/auto_sync_scheduler.dart';
+import 'package:basic_bible/src/features/sync/application/view_models/sync_view_models.dart'
+    show noteChangeSyncTriggerProvider;
+import 'package:basic_bible/src/features/sync/data/extras_merge.dart';
 import 'package:basic_bible/src/services/shared_preferences_provider.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// One entry on the prayer list: a person, event or request to remember.
-class PrayerItem {
-  const PrayerItem({
-    required this.id,
-    required this.text,
-    required this.createdAt,
-  });
-
-  final String id;
-  final String text;
-  final DateTime createdAt;
-
-  Map<String, Object?> toJson() => {
-    'id': id,
-    'text': text,
-    'createdAt': createdAt.toIso8601String(),
-  };
-
-  /// Returns null for anything that is not a valid stored entry, so one bad
-  /// value can never stop the whole list from loading.
-  static PrayerItem? tryFromJson(String raw) {
-    try {
-      final decoded = jsonDecode(raw);
-      if (decoded is! Map) return null;
-      final id = decoded['id'];
-      final text = decoded['text'];
-      if (id is! String || text is! String || text.trim().isEmpty) return null;
-      return PrayerItem(
-        id: id,
-        text: text,
-        createdAt:
-            DateTime.tryParse('${decoded['createdAt']}') ?? DateTime.now(),
-      );
-    } catch (_) {
-      return null;
-    }
-  }
-}
+/// (The same class the Google Drive sync merges; see extras_merge.dart.)
+typedef PrayerItem = PrayerRecord;
 
 final prayerListProvider =
     StateNotifierProvider<PrayerListNotifier, List<PrayerItem>>((ref) {
-      return PrayerListNotifier(ref.read(sharedPreferencesProvider));
+      return PrayerListNotifier(
+        ref.read(sharedPreferencesProvider),
+        syncTrigger: ref.read(noteChangeSyncTriggerProvider),
+      );
     });
 
-/// The user's prayer list, kept on the device in SharedPreferences.
+/// The user's prayer list, kept on the device in SharedPreferences and synced
+/// through Google Drive when signed in.
+///
+/// Removed names are kept as hidden "removal markers" for a while so the
+/// removal reaches the user's other devices; [state] only holds visible names.
 class PrayerListNotifier extends StateNotifier<List<PrayerItem>> {
-  PrayerListNotifier(this._prefs) : super(_load(_prefs));
+  PrayerListNotifier(
+    this._prefs, {
+    NoteSyncTrigger? syncTrigger,
+    int Function()? clock,
+  }) : _syncTrigger = syncTrigger ?? const NoOpNoteSyncTrigger(),
+       _clock = clock ?? (() => DateTime.now().millisecondsSinceEpoch),
+       _all = _load(_prefs),
+       super(_visible(_load(_prefs)));
 
   static const String prefsKey = 'prayer_list';
 
   final SharedPreferences _prefs;
+  final NoteSyncTrigger _syncTrigger;
+  final int Function() _clock;
+  List<PrayerRecord> _all;
   int _counter = 0;
 
-  static List<PrayerItem> _load(SharedPreferences prefs) {
-    final raw = prefs.getStringList(prefsKey) ?? const <String>[];
-    return raw.map(PrayerItem.tryFromJson).whereType<PrayerItem>().toList();
+  static List<PrayerRecord> _load(SharedPreferences prefs) {
+    final records = <PrayerRecord>[];
+    for (final raw in prefs.getStringList(prefsKey) ?? const <String>[]) {
+      final record = PrayerRecord.tryParse(raw);
+      if (record != null) records.add(record);
+    }
+    records.sort(comparePrayerRecords);
+    return records;
+  }
+
+  static List<PrayerRecord> _visible(List<PrayerRecord> all) => [
+    for (final record in all)
+      if (!record.deleted) record,
+  ];
+
+  /// Re-reads the list after a sync changed it from another device.
+  void reload() {
+    _all = _load(_prefs);
+    state = _visible(_all);
   }
 
   /// Adds [text] to the end of the list. Returns false if it was blank.
   Future<bool> add(String text) async {
     final trimmed = text.trim();
     if (trimmed.isEmpty) return false;
-    final item = PrayerItem(
-      id: '${DateTime.now().microsecondsSinceEpoch}-${_counter++}',
-      text: trimmed,
-      createdAt: DateTime.now(),
-    );
-    state = [...state, item];
-    await _persist();
+    final now = _clock();
+    await _commit([
+      ..._all,
+      PrayerRecord(
+        id: '${DateTime.now().microsecondsSinceEpoch}-${_counter++}',
+        text: trimmed,
+        createdAt: now,
+        updatedAt: now,
+        deleted: false,
+      ),
+    ]);
     return true;
   }
 
   Future<void> remove(String id) async {
-    state = [
-      for (final item in state)
-        if (item.id != id) item,
-    ];
-    await _persist();
-  }
-
-  /// Puts [item] back at [index] (used by "Undo" after a removal).
-  Future<void> insertAt(int index, PrayerItem item) async {
-    if (state.any((existing) => existing.id == item.id)) return;
-    final next = [...state];
-    next.insert(index.clamp(0, next.length), item);
-    state = next;
-    await _persist();
-  }
-
-  Future<void> _persist() async {
-    await _prefs.setStringList(prefsKey, [
-      for (final item in state) jsonEncode(item.toJson()),
+    final now = _clock();
+    await _commit([
+      for (final record in _all)
+        record.id == id && !record.deleted
+            ? record.copyWith(deleted: true, updatedAt: now)
+            : record,
     ]);
+  }
+
+  /// Puts a removed [item] back in its old place (used by "Undo").
+  Future<void> restore(PrayerItem item) async {
+    final now = _clock();
+    final exists = _all.any((record) => record.id == item.id);
+    await _commit([
+      for (final record in _all)
+        record.id == item.id
+            ? record.copyWith(deleted: false, updatedAt: now)
+            : record,
+      if (!exists) item.copyWith(deleted: false, updatedAt: now),
+    ]);
+  }
+
+  Future<void> _commit(List<PrayerRecord> all) async {
+    _all = purgeOldTombstones(all, now: _clock())..sort(comparePrayerRecords);
+    state = _visible(_all);
+    await _prefs.setStringList(prefsKey, [
+      for (final record in _all) record.toJsonString(),
+    ]);
+    _syncTrigger.schedule();
   }
 }

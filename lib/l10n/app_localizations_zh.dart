@@ -27,7 +27,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get goToOther => '前往其他页面';
 
   @override
-  String get aboutDescription => 'From Gravel Hill Bible 是一款免费的圣经阅读应用，支持笔记、标注、语音朗读、分屏阅读，以及可选的 Google Drive 同步。本应用由 From Gravel Hill Enterprises（https://fromgravelhill.ca/）开发和维护，基于 PopGTN 的开源应用 Basic Bible。';
+  String get aboutDescription => 'From Gravel Hill Bible 是一款免费的圣经阅读应用，支持笔记、标注、代祷清单、每日经文、分屏阅读，以及可选的 Google Drive 笔记和设置同步。本应用由 From Gravel Hill Enterprises（https://fromgravelhill.ca/）开发和维护，基于 PopGTN 创建的开源应用 Basic Bible。';
 
   @override
   String get language => '语言';
