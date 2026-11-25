@@ -4,8 +4,8 @@ import 'package:basic_bible/src/features/sync/data/extras_sync_repository.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-class _File {
-  _File(this.name, this.content, this.updatedAt, this.deleted);
+class FakeDriveFile {
+  FakeDriveFile(this.name, this.content, this.updatedAt, this.deleted);
   String name;
   String content;
   int? updatedAt;
@@ -14,7 +14,7 @@ class _File {
 
 /// A pretend Google Drive app-data folder shared by all "devices".
 class FakeDrive implements DriveExtrasApi {
-  final Map<String, _File> files = {};
+  final Map<String, FakeDriveFile> files = {};
   int _next = 0;
   int downloads = 0;
   int uploads = 0;
@@ -47,7 +47,7 @@ class FakeDrive implements DriveExtrasApi {
   }) async {
     uploads++;
     final id = existingFileId ?? 'file-${_next++}';
-    files[id] = _File(fileName, content, updatedAtMillis, isDeleted);
+    files[id] = FakeDriveFile(fileName, content, updatedAtMillis, isDeleted);
   }
 }
 
@@ -241,7 +241,7 @@ void main() {
       await setUpDevices();
       await devices.use('phone');
       await prefs.setString('themeMode', 'dark');
-      drive.files['file-x'] = _File('settings.sync', 'garbage', 1, false);
+      drive.files['file-x'] = FakeDriveFile('settings.sync', 'garbage', 1, false);
       final result = await repo().syncOnce();
       expect(result.settingsChanged, isFalse);
       expect(drive.files['file-x']!.content, 'garbage');
